@@ -1,3 +1,4 @@
+import json
 import logging
 import select
 from contextlib import contextmanager
@@ -13,6 +14,7 @@ from psycopg2.extensions import (
     ISOLATION_LEVEL_AUTOCOMMIT,
     quote_ident,
 )
+from psycopg2.extras import Json
 
 
 logger = logging.getLogger(__name__)
@@ -54,18 +56,17 @@ class PostgresBroker(Broker):
 
     def enqueue(self, message, *, delay=None):
         q = message.queue_name
-        payload = message.encode().decode('utf-8')
         insert = (dedent("""\
         WITH ins AS (
           INSERT INTO dramatiq.queue
             (queue_name, message_id, "state", message)
-            VALUES (%s, %s, 'queued', %s::jsonb)
+            VALUES (%s, %s, 'queued', %s)
           RETURNING queue_name, message
         )
         SELECT
           pg_notify('dramatiq.' || queue_name || '.enqueue', message::text)
         FROM ins;
-        """), (q, message.message_id, payload))
+        """), (q, message.message_id, Json(message.asdict())))
 
         with transaction(self.pool) as curs:
             logger.debug("Inserting %s in %s.", message.message_id, q)
@@ -84,7 +85,8 @@ class PostgresConsumer(Consumer):
             # Start by processing already fetched notifies.
             while self.notifies:
                 notify = self.notifies.pop(0)
-                message = Message.decode(notify.payload.encode('utf-8'))
+                payload = json.loads(notify.payload)
+                message = Message(**payload)
                 mid = message.message_id
                 if self.consume_one(message):
                     logger.debug("Consumed message %s.", mid)

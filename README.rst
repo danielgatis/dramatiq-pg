@@ -12,7 +12,8 @@ Features
 ========
 
 - Super simple deployment.
-- Stores messages in a single table.
+- Messages payload as JSONb.
+- All messages in a single table.
 - All data are wrapped in a dedicated schema.
 - Uses LISTEN/NOTIFY to keep worker sync. No polling.
 - Reliable thanks to Postgres MVCC.
