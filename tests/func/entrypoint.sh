@@ -26,6 +26,7 @@ trap teardown EXIT TERM
 if [ $runner -gt 0 -a $owner -ne $runner ] ; then
     exec sudo -E $0
 fi
+sudo mkdir -p $XDG_CACHE_HOME
 sudo chown -R $runner $XDG_CACHE_HOME
 
 mkdir -p $XDG_CACHE_HOME
