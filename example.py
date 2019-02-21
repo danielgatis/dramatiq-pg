@@ -19,6 +19,7 @@ filterwarnings("ignore", message="The psycopg2 wheel package will be renamed")  
 import dramatiq
 import dramatiq_pg
 import psycopg2.pool
+from psycopg2.extras import Json
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,22 @@ dramatiq.set_broker(dramatiq_pg.PostgresBroker(pool=pool))
 @dramatiq.actor
 def sleeper(param):
     sleep(param)
+
+
+@dramatiq.actor
+def writer(*args, **kwargs):
+    conn = pool.getconn()
+    insert = (
+        "INSERT INTO functest.witness (payload) VALUES (%s::jsonb);",
+        (Json(dict(args=args, kwargs=kwargs)),)
+    )
+    try:
+        with conn:
+            with conn.cursor() as curs:
+                logger.info("Inserting args in witness table.")
+                curs.execute(*insert)
+    finally:
+        pool.putconn(conn)
 
 
 def main():
