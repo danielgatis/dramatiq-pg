@@ -1,3 +1,4 @@
+from contextlib import contextmanager, closing
 from subprocess import Popen
 from select import select
 from time import sleep
@@ -9,21 +10,6 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
 filterwarnings("ignore", message="The psycopg2 wheel package will be renamed")
-
-
-def truncate_queue_table():
-    conn = psycopg2.connect("")
-    with conn:
-        with conn.cursor() as curs:
-            curs.execute("TRUNCATE dramatiq.queue;")
-    conn.close()
-
-
-@pytest.fixture(scope='session', autouse=True)
-def flush_queue():
-    truncate_queue_table()
-    yield None
-    truncate_queue_table()
 
 
 class Listener(object):
@@ -49,6 +35,39 @@ class Listener(object):
                 continue  # Loop on timeout
             self.conn.poll()
         return self.conn.notifies
+
+
+@contextmanager
+def pgconn_manager():
+    conn = psycopg2.connect("")
+    with closing(conn):
+        with conn:
+            curs = conn.cursor()
+            with closing(curs):
+                yield curs
+
+
+def truncate(table):
+    with pgconn_manager() as curs:
+        curs.execute(f'TRUNCATE {table};')
+
+
+@pytest.fixture(autouse=True)
+def pgconn():
+    return pgconn_manager
+
+
+@pytest.fixture(scope='session', autouse=True)
+def flush_queue():
+    truncate("dramatiq.queue")
+    yield None
+    truncate("dramatiq.queue")
+
+
+@pytest.fixture()
+def flush_witness():
+    truncate("functest.witness")
+    yield None
 
 
 @pytest.fixture()
