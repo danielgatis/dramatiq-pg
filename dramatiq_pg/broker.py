@@ -80,7 +80,6 @@ class PostgresConsumer(Consumer):
     @property
     def listen_conn(self):
         if self._listen_conn is None:
-            logger.debug("Opening LISTEN connection.")
             self._listen_conn = conn = self.pool.getconn()
             # This is for NOTIFY consistency, according to psycopg2 doc.
             conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
@@ -116,7 +115,8 @@ class PostgresConsumer(Consumer):
 
     def close(self):
         if self._listen_conn:
-            self._listen_conn.close()
+            self.pool.putconn(self._listen_conn)
+            self._listen_conn = None
 
     def consume_one(self, message):
         # Race to process this message.
