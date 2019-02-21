@@ -48,8 +48,7 @@ Now declare/import actors and manage worker just like any `dramatiq setup
 Roadmap
 =======
 
-- Process missed notifyes while resuming worker.
-- Functionnal tests.
+- Process missed notifies while resuming worker.
 - Result storage as JSONb.
 - Delayed task.
 
