@@ -32,5 +32,6 @@ sudo chown -R $runner $XDG_CACHE_HOME
 mkdir -p $XDG_CACHE_HOME
 pip --disable-pip-version-check install --user poetry
 poetry install
+poetry run flake8 dramatiq_pg/ tests/
 poetry run tests/pypsql < dramatiq_pg/schema.sql
 poetry run pytest -x tests/func/
