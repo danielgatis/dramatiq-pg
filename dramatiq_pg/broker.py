@@ -56,18 +56,19 @@ class PostgresBroker(Broker):
         q = message.queue_name
         payload = message.encode().decode('utf-8')
         insert = (dedent("""\
-        INSERT INTO dramatiq.queue
-        (queue_name, message_id, "state", message)
-        VALUES
-        (%s, %s, %s, %s::jsonb);
-        """), (q, message.message_id, 'queued', payload))
+        WITH ins AS (
+          INSERT INTO dramatiq.queue
+            (queue_name, message_id, "state", message)
+            VALUES (%s, %s, 'queued', %s::jsonb)
+          RETURNING queue_name, message
+        )
+        SELECT pg_notify('dramatiq.' || queue_name || '.enqueue', message::text)
+        FROM ins;
+        """), (q, message.message_id, payload))
 
         with transaction(self.pool) as curs:
-            channel = quote_ident(f"dramatiq.{q}.enqueue", curs)
             logger.debug("Inserting %s in %s.", message.message_id, q)
             curs.execute(*insert)
-            # Message must be shorter than 8ko.
-            curs.execute(f"NOTIFY {channel}, %s;", (payload,))
 
 
 class PostgresConsumer(Consumer):
