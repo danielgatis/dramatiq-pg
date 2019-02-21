@@ -18,6 +18,7 @@ Features
 - Uses LISTEN/NOTIFY to keep worker sync. No polling.
 - Reliable thanks to Postgres MVCC.
 - Using plain psycopg2. No ORM.
+- Requeueing of failed tasks.
 
 
 Installation
@@ -47,8 +48,7 @@ Now declare/import actors and manage worker just like any `dramatiq setup
 Roadmap
 =======
 
-- Process missed notifyes while resuming worker.
-- Functionnal tests.
+- Process missed notifies while resuming worker.
 - Result storage as JSONb.
 - Delayed task.
 
