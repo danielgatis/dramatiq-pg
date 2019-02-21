@@ -18,6 +18,7 @@ Features
 - Uses LISTEN/NOTIFY to keep worker sync. No polling.
 - Reliable thanks to Postgres MVCC.
 - Using plain psycopg2. No ORM.
+- Requeueing of failed tasks.
 
 
 Installation
