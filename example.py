@@ -1,6 +1,6 @@
 # To run workers:
 #
-#     dramatiq --verbose -p 2 -t 1 example
+#     dramatiq --watch . --verbose -p 2 -t 1 example
 #
 # To produce messages:
 #
