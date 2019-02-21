@@ -75,20 +75,7 @@ class PostgresConsumer(Consumer):
         self.pool = pool
         self.queue_name = queue_name
         self.notifies = []
-        self._listen_conn = None
-
-    @property
-    def listen_conn(self):
-        if self._listen_conn is None:
-            logger.debug("Opening LISTEN connection.")
-            self._listen_conn = conn = self.pool.getconn()
-            # This is for NOTIFY consistency, according to psycopg2 doc.
-            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-            channel = quote_ident(f"dramatiq.{self.queue_name}.enqueue", conn)
-            with conn.cursor() as curs:
-                logger.debug("Listening on channel %s.", channel)
-                curs.execute(f"LISTEN {channel};")
-        return self._listen_conn
+        self.listen_conn = None
 
     def __next__(self):
         while True:
@@ -113,10 +100,13 @@ class PostgresConsumer(Consumer):
             SET "state" = 'done'
             WHERE message_id = %s AND "state" <> 'done'
             """), (message.message_id,))
+            channel = quote_ident(f"dramatiq.{self.queue_name}.ack", curs)
+            curs.execute(f"NOTIFY {channel}, %s;", (message.message_id,))
 
     def close(self):
-        if self._listen_conn:
-            self._listen_conn.close()
+        if self.listen_conn:
+            self.pool.putconn(self.listen_conn)
+            self.listen_conn = None
 
     def consume_one(self, message):
         # Race to process this message.
@@ -130,12 +120,23 @@ class PostgresConsumer(Consumer):
             return 1 == curs.rowcount
 
     def listen(self):
-        with self.listen_conn.cursor() as curs:
-            while not self.notifies:
-                fd_lists = select.select([curs.connection], [], [], 300)
-                if not any(fd_lists):
-                    # Loop on timeout
-                    continue
-                curs.connection.poll()
-                self.notifies += curs.connection.notifies
-                curs.connection.notifies[:] = []
+        if self.listen_conn is None:
+            self.listen_conn = self.start_listening()
+
+        while not self.notifies:
+            rlist, *_ = select.select([self.listen_conn], [], [], 300)
+            if not rlist:
+                continue  # Loop on timeout
+            self.listen_conn.poll()
+            self.notifies += self.listen_conn.notifies
+            self.listen_conn.notifies[:] = []
+
+    def start_listening(self):
+        conn = self.pool.getconn()
+        # This is for NOTIFY consistency, according to psycopg2 doc.
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+        channel = quote_ident(f"dramatiq.{self.queue_name}.enqueue", conn)
+        with conn.cursor() as curs:
+            logger.debug("Listening on channel %s.", channel)
+            curs.execute(f"LISTEN {channel};")
+        return conn

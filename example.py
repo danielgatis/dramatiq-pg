@@ -12,6 +12,9 @@ import os
 import pdb
 import sys
 from time import sleep
+from warnings import filterwarnings
+
+filterwarnings("ignore", message="The psycopg2 wheel package will be renamed")  # noqa
 
 import dramatiq
 import dramatiq_pg
@@ -20,7 +23,7 @@ import psycopg2.pool
 
 logger = logging.getLogger(__name__)
 # Empty connstring let's you configure psycogp2 using PG* env vars.
-pool = psycopg2.pool.ThreadedConnectionPool(0, 4, "")
+pool = psycopg2.pool.ThreadedConnectionPool(0, 16, "")
 dramatiq.set_broker(dramatiq_pg.PostgresBroker(pool=pool))
 
 

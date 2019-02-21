@@ -1,0 +1,16 @@
+stages:
+- test
+
+
+test-func:
+  stage: test
+  image: circleci/python:3.7-stretch
+  services:
+  - postgres:11-alpine
+  variables:
+    PGHOST: postgres
+    PGUSER: postgres
+  script:
+  - tests/func/entrypoint.sh
+  cache:
+    paths: [.cache/]
