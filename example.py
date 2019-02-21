@@ -12,6 +12,9 @@ import os
 import pdb
 import sys
 from time import sleep
+from warnings import filterwarnings
+
+filterwarnings("ignore", message="The psycopg2 wheel package will be renamed")  # noqa
 
 import dramatiq
 import dramatiq_pg
