@@ -12,6 +12,7 @@ from dramatiq.broker import (
 from dramatiq.message import Message
 from psycopg2.extensions import (
     ISOLATION_LEVEL_AUTOCOMMIT,
+    Notify,
     quote_ident,
 )
 from psycopg2.extras import Json
@@ -137,6 +138,13 @@ class PostgresConsumer(Consumer):
 
         if self.listen_conn is None:
             self.listen_conn = self.start_listening()
+            # We may have received a notify between LISTEN and SELECT of
+            # pending messages. That's not a problem because we are able to
+            # skip spurious notifies.
+            self.notifies = self.replay_pending_notifies()
+            logger.debug(
+                "Found %s pending messages in %s.",
+                len(self.notifies), self.queue_name)
 
         while not self.notifies:
             rlist, *_ = select.select([self.listen_conn], [], [], 300)
@@ -145,6 +153,19 @@ class PostgresConsumer(Consumer):
             self.listen_conn.poll()
             self.notifies += self.listen_conn.notifies
             self.listen_conn.notifies[:] = []
+
+    def replay_pending_notifies(self):
+        logger.debug("Querying pending messages in %s.", self.queue_name)
+        with self.listen_conn.cursor() as curs:
+            curs.execute(dedent("""\
+            SELECT message::text
+              FROM dramatiq.queue
+             WHERE state = 'queued' AND queue_name = %s;
+            """), (self.queue_name,))
+            return [
+                Notify(pid=0, channel=self.ack_channel, payload=r[0])
+                for r in curs
+            ]
 
     def start_listening(self):
         # Opens listening connection with proper configuration.

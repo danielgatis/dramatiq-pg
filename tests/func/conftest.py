@@ -14,7 +14,7 @@ filterwarnings("ignore", message="The psycopg2 wheel package will be renamed")
 
 class Listener(object):
     def __init__(self):
-        self.conn = None
+        self.conn = self.cursor = None
 
     def __enter__(self):
         self.conn = psycopg2.connect("")
@@ -23,9 +23,9 @@ class Listener(object):
         self.cursor.execute(f'LISTEN "dramatiq.default.ack";')
 
     def __exit__(self, *_):
-        # self.cursor.close()
-        # self.conn.close()
-        pass
+        self.cursor.close()
+        self.conn.close()
+        self.conn = self.cursor = None
 
     def wait(self, count=1):
         self.conn.poll()
@@ -74,7 +74,7 @@ def listener():
     return Listener()
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='session')
 def worker():
     logfile = "my-workers.log"
     open(logfile, "w").close()
@@ -84,8 +84,6 @@ def worker():
         "--processes=1", "--threads=8",
         "example",
     ])
-    # Wait for workers to listen.
-    sleep(1)
     try:
         yield proc
     finally:
