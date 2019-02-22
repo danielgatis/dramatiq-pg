@@ -1,12 +1,25 @@
+#
+#       E X A M P L E
+#
+#
+# This example script is tested on CI. Testing code is in tests/func/. example
+# is configured using PG* envvars, .pgpass and pg_service.conf file, like psql.
+#
+# The failing task can raise randomly error. This is helpful to check retrying
+# a task until it succeed. You can seed random with an int SEED env var.
+# 1550768028 is a known SEED to trigger exceptions at least once.
+#
+# The writer tasks inserts its arguments in functests.witness table as declared
+# in tests/func/schema.sql.
+#
 # To run workers:
 #
-#     dramatiq --watch . --verbose -p 2 -t 1 example
+#     SEED=xx dramatiq --watch . --verbose -p 2 -t 2 example
 #
 # To produce messages:
 #
 #     python example.py
-#
-# Random generator can be configured with SEED envvar for both commands.
+
 
 import logging
 import os
