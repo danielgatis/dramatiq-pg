@@ -9,13 +9,12 @@ broker.
 ## Features
 
 - Super simple deployment.
-- Message payload stored as native JSONb.
-- All messages in a single table.
-- All data are wrapped in a dedicated schema.
+- Uses plain psycopg2. No ORM.
+- Stores message payload as native JSONb.
+- Stores all messages in a single table, in a dedicated schema.
 - Uses LISTEN/NOTIFY to keep worker sync. No polling.
 - Reliable thanks to Postgres MVCC.
-- Using plain psycopg2. No ORM.
-- Requeueing of failed tasks.
+- Requeues failed tasks.
 
 
 ## Installation
