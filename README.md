@@ -17,6 +17,9 @@ broker.
 - Requeues failed tasks.
 - Reliable thanks to Postgres MVCC.
 
+Note that dramatiq assumes tasks are idempotent. This broker makes the same
+assumptions for recovering after a crash.
+
 
 ## Installation
 
