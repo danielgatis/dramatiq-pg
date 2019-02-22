@@ -76,10 +76,13 @@ class PostgresBroker(Broker):
 
 class PostgresConsumer(Consumer):
     def __init__(self, *, pool, queue_name, **kw):
+        prefix = "dramatiq." + queue_name
+        self.ack_channel = prefix + ".ack"
+        self.enqueue_channel = prefix + ".enqueue"
+        self.listen_conn = None
+        self.notifies = []
         self.pool = pool
         self.queue_name = queue_name
-        self.notifies = []
-        self.listen_conn = None
 
     def __next__(self):
         while True:
@@ -96,7 +99,7 @@ class PostgresConsumer(Consumer):
                     logger.debug("Message %s already consumed.", mid)
 
             # Notify list is empty, listen for more.
-            self.listen()
+            self.wait_for_notify()
 
     def ack(self, message):
         with transaction(self.pool) as curs:
@@ -110,7 +113,7 @@ class PostgresConsumer(Consumer):
             """), (message.message_id,))
             # Always notify ack, even if message has been requeued. ack just
             # mean message leaved state consumed.
-            channel = quote_ident(f"dramatiq.{self.queue_name}.ack", curs)
+            channel = quote_ident(self.ack_channel, curs)
             curs.execute(f"NOTIFY {channel}, %s;", (message.message_id,))
 
     def close(self):
@@ -129,7 +132,9 @@ class PostgresConsumer(Consumer):
             # If no row was updated, this mean another worker has consumed it.
             return 1 == curs.rowcount
 
-    def listen(self):
+    def wait_for_notify(self):
+        # Blocks until a notify is intercepted.
+
         if self.listen_conn is None:
             self.listen_conn = self.start_listening()
 
@@ -142,10 +147,12 @@ class PostgresConsumer(Consumer):
             self.listen_conn.notifies[:] = []
 
     def start_listening(self):
+        # Opens listening connection with proper configuration.
+
         conn = self.pool.getconn()
         # This is for NOTIFY consistency, according to psycopg2 doc.
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        channel = quote_ident(f"dramatiq.{self.queue_name}.enqueue", conn)
+        channel = quote_ident(self.enqueue_channel, conn)
         with conn.cursor() as curs:
             logger.debug("Listening on channel %s.", channel)
             curs.execute(f"LISTEN {channel};")
