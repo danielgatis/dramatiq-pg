@@ -39,7 +39,9 @@ broker.
   ```
 
 Now declare/import actors and manage worker just like any [dramatiq
-setup](https://dramatiq.io/guide.html).
+setup](https://dramatiq.io/guide.html). An [example
+script](https://gitlab.com/dalibo/dramatiq-pg/blob/master/example.py) is
+available, tested on CI.
 
 
 ## Roadmap
