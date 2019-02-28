@@ -10,7 +10,7 @@ CREATE TYPE dramatiq."state" AS ENUM (
 );
 
 CREATE TABLE dramatiq.queue(
-  id SERIAL PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   queue_name TEXT NOT NULL DEFAULT 'default',
   message_id uuid UNIQUE,
   "state" dramatiq."state",
