@@ -10,6 +10,8 @@ from dramatiq.cli import (
 )
 from psycopg2 import connect
 
+from .broker import purge
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +60,28 @@ def make_argument_parser():
 
     subparsers = parser.add_subparsers()
 
+    subparser = subparsers.add_parser('purge')
+    subparser.set_defaults(command=purge_command)
+    subparser.add_argument(
+        '--maxage', dest='purge_maxage', default='30 days',
+        help=dedent("""\
+        Max age of done/rejected message to keep in queue. Format is Postgres
+        interval. Default is %(default)r.
+        """)
+    )
     subparser = subparsers.add_parser('stats')
     subparser.set_defaults(command=stats_command)
 
     return parser
+
+
+def purge_command(args):
+    conn = connect("")
+    with conn:
+        with conn.cursor() as curs:
+            deleted = purge(curs, args.purge_maxage)
+    conn.close()
+    logger.info("Deleted %d messages.", deleted)
 
 
 def stats_command(args):
