@@ -16,6 +16,7 @@ broker.
 - Replay pending messages on worker startup.
 - Requeues failed tasks.
 - Reliable thanks to Postgres MVCC.
+- Self-healing. Old messages are purge from time to time.
 
 Note that dramatiq assumes tasks are idempotent. This broker makes the same
 assumptions for recovering after a crash.
