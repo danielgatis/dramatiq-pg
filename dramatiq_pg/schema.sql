@@ -19,3 +19,7 @@ CREATE TABLE dramatiq.queue(
   message JSONB,
   "result" JSONB
 );
+
+-- Index state and mtime together to speed up deletion. This can also speed up
+-- statistics when VACUUM ANALYZE is recent enough.
+CREATE INDEX ON dramatiq.queue("state", mtime);
