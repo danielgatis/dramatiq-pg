@@ -87,8 +87,4 @@ def worker():
         yield proc
     finally:
         proc.terminate()
-        sleep(.25)
-        proc.terminate()
-        sleep(.25)
-        proc.kill()
         proc.communicate()

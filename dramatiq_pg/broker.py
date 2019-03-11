@@ -99,8 +99,6 @@ class PostgresConsumer(Consumer):
         self.timeout = timeout // 1000
 
     def __next__(self):
-        self.auto_purge()
-
         # First, open connexion and fetch missed notifies from table.
         if self.listen_conn is None:
             self.listen_conn = self.start_listening()
@@ -109,11 +107,12 @@ class PostgresConsumer(Consumer):
             # skip spurious notifies.
             self.notifies = self.fetch_pending_notifies()
             logger.debug(
-                "Found %s pending messages in %s.",
+                "Found %s pending messages in queue %s.",
                 len(self.notifies), self.queue_name)
 
-        # Then, fetch notifyes from Pg connexion.
-        self.poll_for_notify()
+        if not self.notifies:
+            # Then, fetch notifies from Pg connexion.
+            self.poll_for_notify()
 
         # If we have some notifies, loop to find one todo.
         while self.notifies:
@@ -126,6 +125,9 @@ class PostgresConsumer(Consumer):
                 return MessageProxy(message)
             else:
                 logger.debug("Message %s already consumed.", mid)
+
+        # We have nothing to do, let's see if the queue needs some cleaning.
+        self.auto_purge()
 
     def ack(self, message):
         with transaction(self.pool) as curs:
@@ -143,11 +145,14 @@ class PostgresConsumer(Consumer):
             curs.execute(f"NOTIFY {channel}, %s;", (message.message_id,))
 
     def auto_purge(self):
-        # Automatically purge messages every 100k messages.
-        if 0 == randint(0, 100_000):
-            with transaction(self.pool) as curs:
-                deleted = purge(curs)
-            logger.info("Purged %d messages.", deleted)
+        # Automatically purge messages every 100k iteration. Dramatiq defaults
+        # to 1s. This mean about 1 purge for 28h idle.
+        if randint(0, 100_000):
+            return
+        logger.debug("Randomly triggering garbage collector.")
+        with self.listen_conn.cursor() as curs:
+            deleted = purge(curs)
+        logger.info("Purged %d messages in all queues.", deleted)
 
     def close(self):
         if self.listen_conn:

@@ -8,6 +8,8 @@
   queue with long running task.
 - Added documentation on deployment constaints and limitations.
 - Added manual requeue from CLI tool.
+- Reuse listening connexion to purge message table. This reduce slighly
+  connexion usage.
 
 
 ## 0.3.0 (2019-03-07)
