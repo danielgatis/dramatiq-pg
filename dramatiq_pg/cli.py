@@ -1,6 +1,7 @@
 import argparse
 import logging
 import pdb
+from contextlib import closing, contextmanager
 from pkg_resources import get_distribution
 from textwrap import dedent
 
@@ -69,6 +70,17 @@ def make_argument_parser():
         interval. Default is %(default)r.
         """)
     )
+
+    subparser = subparsers.add_parser('recover')
+    subparser.set_defaults(command=recover_command)
+    subparser.add_argument(
+        '--minage', dest='recover_minage', default='1 min',
+        help=dedent("""\
+        Max age of consumed message to requere. Format is Postgres
+        interval. Default is %(default)r.
+        """)
+    )
+
     subparser = subparsers.add_parser('stats')
     subparser.set_defaults(command=stats_command)
 
@@ -76,28 +88,43 @@ def make_argument_parser():
 
 
 def purge_command(args):
-    conn = connect("")
-    with conn:
-        with conn.cursor() as curs:
-            deleted = purge(curs, args.purge_maxage)
-    conn.close()
+    with transaction() as curs:
+        deleted = purge(curs, args.purge_maxage)
     logger.info("Deleted %d messages.", deleted)
 
 
+def recover_command(args):
+    with transaction() as curs:
+        curs.execute(dedent("""\
+        UPDATE dramatiq.queue
+           SET state = 'queued'
+         WHERE state = 'consumed'
+           AND mtime < (NOW() AT TIME ZONE 'UTC') - interval %s;
+        """), (args.recover_minage,))
+        recovered = curs.rowcount
+    logger.info("Recovered %s messages.", recovered)
+
+
 def stats_command(args):
-    conn = connect("")
-    with conn:
-        with conn.cursor() as curs:
-            curs.execute(dedent("""\
-            SELECT "state", count(1)
-              FROM dramatiq.queue
-            GROUP BY "state";
-            """))
-            stats = dict(curs.fetchall())
-    conn.close()
+    with transaction() as curs:
+        curs.execute(dedent("""\
+        SELECT "state", count(1)
+          FROM dramatiq.queue
+        GROUP BY "state";
+        """))
+        stats = dict(curs.fetchall())
 
     for state in 'queued', 'consumed', 'done', 'rejected':
         print(f'{state}: {stats.get(state, 0)}')
+
+
+@contextmanager
+def transaction(connstring=""):
+    # Manager for connecting to psycopg2 for a single transaction.
+    with closing(connect(connstring)) as conn:
+        with conn:
+            with conn.cursor() as curs:
+                yield curs
 
 
 if '__main__' == __name__:
