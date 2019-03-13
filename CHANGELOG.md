@@ -1,6 +1,6 @@
 # Dramatiq-pg Changelog
 
-## Unreleased changes
+## [0.4.0] (2019-03-13)
 
 - Fixed blocking consumer thread. `select` syscall is now called every seconds
   by default.
