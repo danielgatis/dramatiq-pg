@@ -8,7 +8,7 @@ python-versions = "*"
 version = "0.26.2"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Atomic file writes."
 name = "atomicwrites"
 optional = false
@@ -16,7 +16,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "1.3.0"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Classes Without Boilerplate"
 name = "attrs"
 optional = false
@@ -36,7 +36,7 @@ version = "1.12.1"
 pycparser = "*"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Cross-platform colored terminal text."
 marker = "sys_platform == \"win32\""
 name = "colorama"
@@ -110,7 +110,7 @@ python-versions = "*"
 version = "0.6.1"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "More routines for operating on iterables, beyond itertools"
 marker = "python_version > \"2.7\""
 name = "more-itertools"
@@ -119,7 +119,7 @@ python-versions = ">=3.4"
 version = "6.0.0"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Object-oriented filesystem paths"
 marker = "python_version < \"3.6\""
 name = "pathlib2"
@@ -140,7 +140,7 @@ python-versions = "*"
 version = "0.1.2"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "plugin and hook calling mechanisms for python"
 name = "pluggy"
 optional = false
@@ -164,7 +164,7 @@ python-versions = "*"
 version = "2.7.7"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "library with cross-python path, ini-parsing, io, code, log facilities"
 name = "py"
 optional = false
@@ -197,7 +197,7 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "2.1.0"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "pytest: simple powerful testing with Python"
 name = "pytest"
 optional = false
@@ -222,7 +222,7 @@ python = "<3.6"
 version = ">=2.2.0"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Thin-wrapper around the mock package for easier use with py.test"
 name = "pytest-mock"
 optional = false
@@ -261,7 +261,7 @@ python-versions = "*"
 version = "1.12.14"
 
 [[package]]
-category = "main"
+category = "dev"
 description = "Python 2 and 3 compatibility utilities"
 name = "six"
 optional = false
@@ -296,7 +296,7 @@ gevent = ">=1.1"
 watchdog = ">=0.8"
 
 [metadata]
-content-hash = "159b34a1a813bcb748203796f44716885d0d2c8f8e2880fb172a71273906f572"
+content-hash = "a6fb05484ff67b584516b0980502e90668c8398d4327d729d6aacbe5aaac7276"
 python-versions = "^3.5"
 
 [metadata.hashes]
