@@ -15,7 +15,7 @@
   connexion usage.
 
 
-## 0.3.0 (2019-03-07)
+## [0.3.0] (2019-03-07)
 
 - Added rejecting message (nack).
 - Added message replay from table at startup. Missed NOTIFY are not lost
@@ -28,7 +28,7 @@
 - Added projet licence, logo and metadata.
 
 
-## 0.2.0 (2019-02-22)
+## [0.2.0] (2019-02-22)
 
 - First working implementation.
 - Added func tests.
