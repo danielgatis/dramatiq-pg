@@ -2,7 +2,7 @@ import json
 import logging
 from textwrap import dedent
 
-from dramatiq.results import ResultBackend, ResultMissing
+from dramatiq.results import ResultBackend, ResultMissing, ResultTimeout
 from psycopg2.extras import Json
 
 from .utils import make_pool, transaction, wait_for_notifies
@@ -45,7 +45,7 @@ class PostgresBackend(ResultBackend):
             notifies = wait_for_notifies(curs.connection, timeout=timeout)
 
         if not notifies:
-            raise ResultMissing(message)
+            raise ResultTimeout(message)
         notify, = notifies
         return json.loads(notify.payload)
 

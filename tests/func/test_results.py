@@ -1,5 +1,5 @@
 import pytest
-from dramatiq import DramatiqError
+from dramatiq.results import ResultMissing, ResultTimeout
 
 from example import saver
 
@@ -10,7 +10,7 @@ def test_block(worker):
 
     # There is a race condition here between the wait= and the get_result call.
     # We want to call get_result before saver returns.
-    with pytest.raises(DramatiqError):
+    with pytest.raises(ResultMissing):
         result = message.get_result()
 
     result = message.get_result(block=True)
@@ -24,7 +24,7 @@ def test_block(worker):
 def test_timeout(worker):
     message = saver.send(wait=.5, message='test_timeout message.')
 
-    with pytest.raises(DramatiqError):
+    with pytest.raises(ResultTimeout):
         message.get_result(block=True, timeout=100)
 
     result = message.get_result(block=True)
