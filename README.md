@@ -4,8 +4,6 @@
 Python3. dramatiq-pg provides a Postgres-based implementation of a dramatiq
 broker.
 
-**The project is not feature complete yet.**
-
 ## Features
 
 - Super simple deployment.
