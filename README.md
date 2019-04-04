@@ -55,6 +55,11 @@ available, tested on CI.
 The CLI tool `dramatiq-pg` allows you to requeue messages, purge old messages
 and show stats on the queue. See `--help` for details.
 
+[Dramatiq-pg
+documentation](https://gitlab.com/bersace/dramatiq-pg/blob/perfs/docs/index.rst)
+is hosted on GitLab and give you more details on deployment and operation of
+Postgres as a Dramatiq broker.
+
 
 ## Support
 
