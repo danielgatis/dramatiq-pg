@@ -18,7 +18,7 @@ CREATE TABLE dramatiq.queue(
   message JSONB,
   "result" JSONB,
   result_ttl  TIMESTAMP WITH TIME ZONE
-);
+) WITHOUT OIDS;
 
 -- Index state and mtime together to speed up deletion. This can also speed up
 -- statistics when VACUUM ANALYZE is recent enough.
