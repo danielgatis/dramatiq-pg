@@ -77,8 +77,8 @@ task with a single parameter, so the message size is quite small. Postgres,
 emitter and worker runs on the same host, at the same time. Here are the key
 metrics:
 
-- Message emission rate: 190 message per seconds.
-- Message processing rate: 91 message per seconds.
+- Message emission rate: 203 message per seconds.
+- Message processing rate: 96 message per seconds.
 
 The difference between emission an processing is consistent with the cost of
 INSERT/UPDATE. Processing costs twice as emitting as it implies two UPDATE while
