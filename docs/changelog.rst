@@ -4,7 +4,11 @@ Dramatiq-pg Changelog
 Unreleased
 ----------
 
-- Allows to use psycopg2-binary wheel.
+This release requires an update fo the schema and to installation process.
+
+- Allows to use psycopg2-binary wheel. You must install psycopg2 or
+  psycopg2-binary yourself.
+- dramatiq.queue table has been review for optimisation.
 
 
 Version 0.5.0

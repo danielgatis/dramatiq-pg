@@ -10,17 +10,15 @@ CREATE TYPE dramatiq."state" AS ENUM (
 );
 
 CREATE TABLE dramatiq.queue(
-  id BIGSERIAL PRIMARY KEY,
+  message_id uuid PRIMARY KEY,
   queue_name TEXT NOT NULL DEFAULT 'default',
-  message_id uuid UNIQUE,
   "state" dramatiq."state",
   mtime TIMESTAMP WITH TIME ZONE DEFAULT (NOW() AT TIME ZONE 'UTC'),
   -- message as encoded by dramatiq.
   message JSONB,
-  result_key TEXT UNIQUE,
   "result" JSONB,
   result_ttl  TIMESTAMP WITH TIME ZONE
-);
+) WITHOUT OIDS;
 
 -- Index state and mtime together to speed up deletion. This can also speed up
 -- statistics when VACUUM ANALYZE is recent enough.
