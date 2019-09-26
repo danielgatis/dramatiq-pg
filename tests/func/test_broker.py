@@ -8,6 +8,7 @@ from example import (
     failing,
     rejecting,
     writer,
+    sleeper,
 )
 
 
@@ -83,8 +84,31 @@ def test_delay(listener, pgconn, worker):
         # message wont be processed before SIGHUP.
         writer.send_with_options(args=("requeued",), delay=2000)
         # SIGHUP triggers requeue, restart and recover.
-        worker.send_signal(signal.SIGHUP)
+        worker.proc.send_signal(signal.SIGHUP)
         listener.wait()
         delayed_delta = datetime.utcnow() - queue_time
 
     assert delayed_delta.total_seconds() > 1
+
+
+def test_crash(listener, worker):
+    with listener:
+        with worker.open_log() as fo:
+            # Send a somewhat long message. Longer than dramatiq loop.
+            sleeper.send(1.5)
+
+            # Watch log for message reception.
+            worker.watch_log(fo, 'Received message sleeper(1.5)')
+
+        # Kill *all* dramatiq processes.
+        worker.crash()
+
+        # Ensure that the message is not processed.
+        with pytest.raises(listener.Timeout):
+            listener.wait(1, timeout=2)
+
+
+def test_recover(listener, restart_worker):
+    # Now restart worker and ensure the message is processed.
+    with listener:
+        listener.wait(1, timeout=5)

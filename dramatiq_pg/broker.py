@@ -97,12 +97,16 @@ class PostgresBroker(Broker):
 class PostgresConsumer(Consumer):
     def __init__(self, *, pool, queue_name, timeout, **kw):
         self.listen_conn = None
+        self.consume_conn = None
         self.notifies = []
         self.pool = pool
         self.queue_name = queue_name
         self.timeout = timeout // 1000
 
     def __next__(self):
+        if self.consume_conn is None:
+            self.consume_conn = self.pool.getconn()
+
         # First, open connexion and fetch missed notifies from table.
         if self.listen_conn is None:
             self.listen_conn = self.start_listening()
@@ -133,11 +137,13 @@ class PostgresConsumer(Consumer):
         self.auto_purge()
 
     def ack(self, message):
-        with transaction(self.pool) as curs:
+        with transaction(self.consume_conn) as curs:
             channel = f"dramatiq.{message.queue_name}.ack"
             payload = Json(message.asdict())
+            lock = hash(str(message.message_id))
             logger.debug(
-                "Notifying %s for ACK %s.", channel, message.message_id)
+                "Notifying %s for ACK %s (%s).",
+                channel, message.message_id, lock)
             # dramatiq always ack a message, even if it has been requeued by
             # the Retries middleware. Thus, only update message in state
             # `consumed`.
@@ -145,13 +151,15 @@ class PostgresConsumer(Consumer):
             WITH updated AS (
               UPDATE dramatiq.queue
                  SET "state" = 'done', message = %s
-               WHERE message_id = %s AND state = 'consumed'
+               WHERE message_id = %s
+                 AND state = 'consumed'
               RETURNING message
             )
             SELECT
-              pg_notify(%s, message::text)
+              pg_notify(%s, message::text),
+              pg_advisory_unlock(%s)
             FROM updated;
-            """), (payload, message.message_id, channel))
+            """), (payload, message.message_id, channel, lock))
 
     def auto_purge(self):
         # Automatically purge messages every 100k iteration. Dramatiq defaults
@@ -168,21 +176,29 @@ class PostgresConsumer(Consumer):
             self.pool.putconn(self.listen_conn)
             self.listen_conn = None
 
+        if self.consume_conn:
+            self.pool.putconn(self.consume_conn)
+            self.consume_conn = None
+
     def consume_one(self, message):
-        # Race to process this message.
-        with transaction(self.pool) as curs:
+        # Race to process message.
+        with transaction(self.consume_conn) as curs:
+            lock = hash(str(message.message_id))
             curs.execute(dedent("""\
             UPDATE dramatiq.queue
                SET "state" = 'consumed',
                    mtime = (NOW() AT TIME ZONE 'UTC')
-             WHERE message_id = %s AND "state" = 'queued';
-            """), (message.message_id,))
+             WHERE message_id = %s
+               AND pg_try_advisory_lock(%s);
+            """), (message.message_id, lock))
             # If no row was updated, this mean another worker has consumed it.
+            if curs.rowcount:
+                logger.info("Consumed %s (%s).", message.message_id, lock)
             return 1 == curs.rowcount
 
     def nack(self, message):
-        with transaction(self.lock_conn) as curs:
-            lock = hash(message.message_id)
+        with transaction(self.consume_conn) as curs:
+            lock = hash(str(message.message_id))
             # Use the same channel as ack. Actually means done.
             channel = f"dramatiq.{message.queue_name}.ack"
             logger.debug(
@@ -192,20 +208,23 @@ class PostgresConsumer(Consumer):
             WITH updated AS (
               UPDATE dramatiq.queue
                  SET "state" = 'rejected', message = %s
-               WHERE message_id = %s AND state <> 'rejected'
+               WHERE message_id = %s
+                 AND state <> 'rejected'
+                 AND pg_advisory_unlock(%s)
               RETURNING message
             )
             SELECT
               pg_notify(%s, message::text)
             FROM updated;
-            """), (payload, message.message_id, channel))
+            """), (payload, message.message_id, lock, channel))
 
     def fetch_pending_notifies(self):
         with transaction(self.listen_conn) as curs:
             curs.execute(dedent("""\
             SELECT message::text
               FROM dramatiq.queue
-             WHERE state = 'queued' AND queue_name IN %s;
+             WHERE state IN ('queued', 'consumed')
+               AND queue_name IN %s;
             """), ((self.queue_name, dq_name(self.queue_name)),))
             return [
                 Notify(pid=0, channel=None, payload=r[0])
