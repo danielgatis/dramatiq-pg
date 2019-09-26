@@ -159,7 +159,7 @@ class PostgresConsumer(Consumer):
         if randint(0, 100_000):
             return
         logger.debug("Randomly triggering garbage collector.")
-        with self.listen_conn.cursor() as curs:
+        with transaction(self.listen_conn) as curs:
             deleted = purge(curs)
         logger.info("Purged %d messages in all queues.", deleted)
 
@@ -181,7 +181,8 @@ class PostgresConsumer(Consumer):
             return 1 == curs.rowcount
 
     def nack(self, message):
-        with transaction(self.pool) as curs:
+        with transaction(self.lock_conn) as curs:
+            lock = hash(message.message_id)
             # Use the same channel as ack. Actually means done.
             channel = f"dramatiq.{message.queue_name}.ack"
             logger.debug(
@@ -200,7 +201,7 @@ class PostgresConsumer(Consumer):
             """), (payload, message.message_id, channel))
 
     def fetch_pending_notifies(self):
-        with self.listen_conn.cursor() as curs:
+        with transaction(self.listen_conn) as curs:
             curs.execute(dedent("""\
             SELECT message::text
               FROM dramatiq.queue
