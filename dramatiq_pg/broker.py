@@ -207,6 +207,7 @@ class PostgresConsumer(Consumer):
                SET "state" = 'consumed',
                    mtime = (NOW() AT TIME ZONE 'UTC')
              WHERE message_id = %s
+               AND state IN ('queued', 'consumed')
                AND pg_try_advisory_lock(%s);
             """), (message.message_id, lock))
             # If no row was updated, this mean another worker has consumed it.
