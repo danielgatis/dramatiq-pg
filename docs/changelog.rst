@@ -6,6 +6,8 @@ Unreleased
 
 - Automatic recovery of message after crash. You don't need to manually requeue
   anymore.
+- More reliability: connection lost are handled everywhere, retrying on network
+  failure is enabled.
 - Allows to use psycopg2-binary wheel. You must install psycopg2 or
   psycopg2-binary yourself.
 - By default, connection pool tries to reuse all connections.
