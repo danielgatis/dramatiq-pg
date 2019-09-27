@@ -6,6 +6,8 @@ Unreleased
 
 This release requires an update fo the schema and to installation process.
 
+- Automatic recovery of message after crash. You don't need to manually requeue
+  anymore.
 - Allows to use psycopg2-binary wheel. You must install psycopg2 or
   psycopg2-binary yourself.
 - dramatiq.queue table has been review for optimisation.

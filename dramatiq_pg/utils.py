@@ -31,9 +31,13 @@ def make_pool(url):
 
 
 @contextmanager
-def transaction(pool, listen=None):
+def transaction(conn_or_pool, listen=None):
     # Manage the connection, transaction and cursor from a connection pool.
-    conn = pool.getconn()
+    new_conn = hasattr(conn_or_pool, 'getconn')
+    if new_conn:
+        conn = conn_or_pool.getconn()
+    else:
+        conn = conn_or_pool
 
     if listen:
         # This is for NOTIFY consistency, according to psycopg2 doc.
@@ -47,7 +51,8 @@ def transaction(pool, listen=None):
                     curs.execute(f"LISTEN {channel};")
                 yield curs
     finally:
-        pool.putconn(conn)
+        if new_conn:
+            conn_or_pool.putconn(conn)
 
 
 def wait_for_notifies(conn, timeout=1000):

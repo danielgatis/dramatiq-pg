@@ -1,3 +1,5 @@
+import os
+import signal
 from contextlib import contextmanager, closing
 from subprocess import Popen
 from select import select
@@ -12,6 +14,9 @@ filterwarnings("ignore", message="The psycopg2 wheel package will be renamed")
 
 
 class Listener(object):
+    class Timeout(Exception):
+        pass
+
     def __init__(self):
         self.conn = self.cursor = None
 
@@ -26,14 +31,19 @@ class Listener(object):
         self.conn.close()
         self.conn = self.cursor = None
 
-    def wait(self, count=1):
+    def wait(self, count=1, timeout=30):
         self.conn.notifies[:] = []
         self.conn.poll()
+        select_timeout = min(5, timeout)
         while len(self.conn.notifies) < count:
-            rlist, *_ = select([self.conn], [], [], 300)
+            if timeout <= 0:
+                raise self.Timeout("Timeout")
+            timeout -= select_timeout
+            rlist, *_ = select([self.conn], [], [], select_timeout)
             if not rlist:
                 continue  # Loop on timeout
             self.conn.poll()
+
         return self.conn.notifies.copy()
 
 
@@ -74,26 +84,55 @@ def listener():
     return Listener()
 
 
+class WorkerManager(object):
+    def __init__(self, name='workers'):
+        self.logfilename = f"my-{name}.log"
+
+    def start(self):
+        self.logfo = self.open_log("w+")
+        self.proc = Popen([
+            "dramatiq",
+            "--verbose", "--log-file", self.logfilename,
+            "--processes=4", "--threads=2",
+            "example",
+        ], start_new_session=True)
+        self.watch_log(self.logfo, needle="Worker process is ready")
+
+    def stop(self, *_):
+        self.proc.poll()
+        if self.proc.returncode is None:
+            self.proc.terminate()
+        self.proc.communicate()
+
+    def crash(self):
+        pgid = os.getpgid(self.proc.pid)
+        os.killpg(pgid, signal.SIGKILL)
+
+    def open_log(self, mode='a+'):
+        return open(self.logfilename, mode)
+
+    def watch_log(self, fo, needle):
+        while True:
+            for line in fo:
+                if needle in line:
+                    return
+
+
 @pytest.fixture(scope='session')
 def worker():
-    logfile = "my-workers.log"
-    ready = False
-    with open(logfile, "w+") as fo:
-        proc = Popen([
-            "dramatiq",
-            "--verbose", "--log-file", logfile,
-            "--processes=1", "--threads=8",
-            "example",
-        ])
-
-        while not ready:
-            for line in fo:
-                ready = "Worker process is ready" in line
-                if ready:
-                    break
-
+    manager = WorkerManager()
+    manager.start()
     try:
-        yield proc
+        yield manager
     finally:
-        proc.terminate()
-        proc.communicate()
+        manager.stop()
+
+
+@pytest.fixture(scope='session')
+def restart_worker():
+    manager = WorkerManager(name='workers-restart')
+    manager.start()
+    try:
+        yield manager
+    finally:
+        manager.stop()
