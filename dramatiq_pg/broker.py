@@ -19,7 +19,7 @@ from psycopg2.extensions import (
 )
 from psycopg2.extras import Json
 
-from .utils import make_pool, transaction
+from .utils import getconn, make_pool, transaction
 from .results import PostgresBackend
 
 
@@ -105,7 +105,7 @@ class PostgresConsumer(Consumer):
 
     def __next__(self):
         if self.consume_conn is None:
-            self.consume_conn = self.pool.getconn()
+            self.consume_conn = getconn(self.pool)
 
         # First, open connexion and fetch missed notifies from table.
         if self.listen_conn is None:
@@ -247,7 +247,7 @@ class PostgresConsumer(Consumer):
     def start_listening(self):
         # Opens listening connection with proper configuration.
 
-        conn = self.pool.getconn()
+        conn = getconn(self.pool)
         # This is for NOTIFY consistency, according to psycopg2 doc.
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         channel = quote_ident(f"dramatiq.{self.queue_name}.enqueue", conn)

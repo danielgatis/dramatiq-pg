@@ -7,11 +7,13 @@ from urllib.parse import (
     urlparse,
 )
 
+from psycopg2 import OperationalError
 from psycopg2.extensions import (
     ISOLATION_LEVEL_AUTOCOMMIT,
     quote_ident,
 )
 from psycopg2.pool import ThreadedConnectionPool
+import tenacity
 
 
 logger = logging.getLogger(__name__)
@@ -29,13 +31,23 @@ def make_pool(url):
         connstring = connstring.replace(':/', ':///')
     return ThreadedConnectionPool(minconn, maxconn, connstring)
 
+@tenacity.retry(
+    retry=tenacity.retry_if_exception(OperationalError),
+    reraise=True,
+    wait=tenacity.wait_random_exponential(multiplier=1, max=30),
+    stop=tenacity.stop_after_attempt(7),
+    before_sleep=tenacity.before_sleep_log(logger, logging.INFO),
+)
+def getconn(pool):
+    return pool.getconn()
+
 
 @contextmanager
 def transaction(conn_or_pool, listen=None):
     # Manage the connection, transaction and cursor from a connection pool.
     new_conn = hasattr(conn_or_pool, 'getconn')
     if new_conn:
-        conn = conn_or_pool.getconn()
+        conn = getconn(conn_or_pool)
     else:
         conn = conn_or_pool
 
