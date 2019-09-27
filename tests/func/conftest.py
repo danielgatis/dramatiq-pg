@@ -3,6 +3,7 @@ import signal
 from contextlib import contextmanager, closing
 from subprocess import Popen
 from select import select
+from time import sleep
 from warnings import filterwarnings
 
 import pytest
@@ -101,6 +102,10 @@ class WorkerManager(object):
     def stop(self, *_):
         self.proc.poll()
         if self.proc.returncode is None:
+            self.proc.terminate()
+            sleep(.5)
+            self.proc.poll()
+        if self.proc.returncode is not None:
             self.proc.terminate()
         self.proc.communicate()
 
