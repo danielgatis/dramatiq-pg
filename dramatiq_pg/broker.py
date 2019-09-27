@@ -167,7 +167,7 @@ class PostgresConsumer(Consumer):
         if randint(0, 100_000):
             return
         logger.debug("Randomly triggering garbage collector.")
-        with transaction(self.listen_conn) as curs:
+        with transaction(self.consume_conn) as curs:
             deleted = purge(curs)
         logger.info("Purged %d messages in all queues.", deleted)
 
