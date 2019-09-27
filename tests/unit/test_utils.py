@@ -6,15 +6,15 @@ def test_make_pool(mocker):
     from dramatiq_pg.utils import make_pool
 
     make_pool("")
-    tp.assert_called_with(0, 16, "")
+    tp.assert_called_with(16, 16, "")
     tp.reset_mock()
 
     make_pool("")
-    tp.assert_called_with(0, 16, "")
+    tp.assert_called_with(16, 16, "")
     tp.reset_mock()
 
     make_pool("dbname=toto")
-    tp.assert_called_with(0, 16, "dbname=toto")
+    tp.assert_called_with(16, 16, "dbname=toto")
     tp.reset_mock()
 
     make_pool("postgresql:///?minconn=4")

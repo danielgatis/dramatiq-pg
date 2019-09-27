@@ -53,11 +53,11 @@ def getconn(pool):
 
 
 @retry_pg
-def make_pool(url):
+def make_pool(url, maxconn=16):
     parts = urlparse(url)
     qs = dict(parse_qsl(parts.query))
-    maxconn = int(qs.pop('maxconn', '16'))
-    minconn = int(qs.pop('minconn', maxconn))
+    maxconn = int(qs.pop('maxconn', maxconn))
+    minconn = int(qs.pop('minconn', maxconn))  # Default to maxconn.
     parts = parts._replace(query=urlencode(qs))
     connstring = parts.geturl()
     if ":/?" in connstring or connstring.endswith(':/'):
