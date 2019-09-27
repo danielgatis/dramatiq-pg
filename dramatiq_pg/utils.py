@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 def make_pool(url):
     parts = urlparse(url)
     qs = dict(parse_qsl(parts.query))
-    minconn = int(qs.pop('minconn', '0'))
     maxconn = int(qs.pop('maxconn', '16'))
+    minconn = int(qs.pop('minconn', maxconn))
     parts = parts._replace(query=urlencode(qs))
     connstring = parts.geturl()
     if ":/?" in connstring or connstring.endswith(':/'):

@@ -11,6 +11,7 @@ This release requires an update fo the schema and to installation process.
 - Allows to use psycopg2-binary wheel. You must install psycopg2 or
   psycopg2-binary yourself.
 - dramatiq.queue table has been review for optimisation.
+- By default, connection pool tries to reuse all connections.
 
 
 Version 0.5.0
