@@ -63,7 +63,9 @@ def make_pool(url, maxconn=16):
     if ":/?" in connstring or connstring.endswith(':/'):
         # geturl replaces :/// with :/. libpq does not accept that.
         connstring = connstring.replace(':/', ':///')
-    return ThreadedConnectionPool(minconn, maxconn, connstring)
+    pool = ThreadedConnectionPool(0, maxconn, connstring)
+    pool.minconn = minconn
+    return pool
 
 
 @contextmanager
