@@ -52,6 +52,14 @@ def main():
         return 1
 
     args.pool = make_pool(args.url, maxconn=1)
+
+    try:
+        with transaction(args.pool) as curs:
+            curs.connection.poll()
+    except Exception as e:
+        logger.error("Failed to connect: %s.", e)
+        return 1
+
     return args.command(args)
 
 
