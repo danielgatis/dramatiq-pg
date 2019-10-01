@@ -33,30 +33,35 @@ Connection Usage
 
 On top of regular connection usage for accessing your data, using Postgres as a
 broker increase the needed connections. Dramatiq-pg's broker has its own pool of
-connection. Your broker is used in different situation : application, worker,
-scheduler, etc. Each will have it's own formula to determine its connection pool
-size. The first step is to size these Dramatiq-pg connection pools properly. The
-second step is to allocate enough connection in PostgreSQL with
+connection, distinct from business data connections. The broker is used in
+different situation : application, worker, scheduler, etc. Each have its own
+formula to determine the connection pool size.
+
+To configuration connection usage properly : first size these Dramatiq-pg
+connection pools properly, then allocate enough connection in PostgreSQL with
 ``max_connection`` for all the pools.
+
 
 Application Pool
 ----------------
 
 The application pool is simple. Each thread of the application requires only one
 connection at a time to either send messages or get back the result. Application
-pool size equals ``num_threads``.
+pool size equals ``app_threads``.
 
 Note that a scheduler like `periodiq <https://gitlab.com/bersace/periodiq>`_
 should be considered as a single threaded app.
+
 
 Worker Pool
 -----------
 
 The Dramatiq worker pool size is slightly more complex to size. Each dramatiq
 worker process opens **two** persistent connections per queue : one for
-listening and one to consume/ack messages. Each worker thread requires a
-connection to acknowledge message. Thus, to be save, you should size the pool
-with ``num_queues x 2 + num_threads``.
+listening and one to consume messages. Each worker thread requires a connection
+to acknowledge message. Thus, to be save, you should size the pool with
+``num_queues x 2 + num_threads``.
+
 
 Other Usage
 -----------
@@ -65,13 +70,15 @@ Their is some more connections required for monitoring and eventually manage
 queue with ``dramatiq-pg`` command. Consider each of these usage as a single
 threaded application, consuming one connection.
 
+
 Summarize All
 -------------
 
 On PostgreSQL side, you have to sum the size of all instanciated pools. Each
-worker service can run several processes, defaulting to 8. This multiply the
-number of required connection on PostgreSQL side. Also, you may require one or
-more connection to monitor and manage the queue.
+worker service can run several processes, defaulting to 8, with their own
+connection pool. This multiply the number of required connection on PostgreSQL
+side. You may also require one or more connection to monitor and manage the
+queue.
 
 The final formula for allocating connection on PostgreSQL would be:
 
@@ -95,6 +102,7 @@ worker service with 1 process and 2 threads, a scheduler and 2 queues results in
 a connection usage of ``4 + 1 * (2 * 2 + 2) + 1 + 1 + 1`` or up to 13
 connections used for messaging. Add 13 to you ``max_connection`` and you're
 done.
+
 
 Monitoring
 ==========
