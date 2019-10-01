@@ -125,22 +125,11 @@ The ``dramatiq-pg`` CLI tool has a ``stats`` command that output some metric.
 The ``dramatiq-pg`` CLI tool is only configured using ``PG*`` env vars.
 
 
-Troubleshooting
-===============
+Crash recovery
+==============
 
-When a worker process crashes in the middle of a task, the message is not
-replayed automatically. If you don't replay it, it will never be processed
-completely. Use ``dramatiq-pg recover`` to requeue consumed message. The
-``--minage`` parameter may help you to avoid requeue message consumed by running
-worker. ``--minage`` accepts a Postgres interval value.
-
-::
-
-   dramatiq-pg recover --minage 5m
-
-Assuming the crash occured 5 minutes ago, this command requeues messages
-consumed 5 minutes ago and beyond, excluding messages consumed between 5 minutes
-ago and now.
+When a worker process crashes in the middle of a task, the message will be
+replayed on next start.
 
 Note that Dramatiq assumes tasks are idempotent. Thus, requeueing a processing
 task should not be an issue.
