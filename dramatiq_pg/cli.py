@@ -1,7 +1,9 @@
 import argparse
 import logging
+import os
 import pdb
-from contextlib import closing, contextmanager
+import sys
+from distutils.util import strtobool
 from pkg_resources import get_distribution
 from textwrap import dedent
 
@@ -18,7 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 def entrypoint():
-    logging.basicConfig(level=logging.INFO, format=LOGFORMAT)
+    debug = strtobool(os.environ.get('DEBUG', 'n'))
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(level=level, format=LOGFORMAT)
 
     try:
         exit(main())
@@ -26,10 +30,14 @@ def entrypoint():
         logger.info("Interrupted.")
     except Exception:
         logger.exception('Unhandled error:')
-        logger.error(
-            "Please file an issue at "
-            "https://gitlab.com/dalibo/dramatiq-pg/issues/new with full log.",
-        )
+        if debug:
+            pdb.post_mortem(sys.exc_info()[2])
+        else:
+            logger.error(
+                "Please file an issue at "
+                "https://gitlab.com/dalibo/dramatiq-pg/issues/new with full "
+                "log.",
+            )
     exit(1)
 
 
