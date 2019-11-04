@@ -30,7 +30,7 @@ sudo mkdir -p $XDG_CACHE_HOME
 sudo chown -R $runner $XDG_CACHE_HOME
 
 mkdir -p $XDG_CACHE_HOME
-pip3 --disable-pip-version-check install --user poetry==1.0.0b1
+pip3 --disable-pip-version-check install --user poetry==1.0.0b2
 poetry install
 poetry run flake8 dramatiq_pg/ tests/
 poetry run make -C docs/ check
