@@ -246,7 +246,8 @@ class PostgresConsumer(Consumer):
     def consume_one(self, message):
         # Race to process message.
         with transaction(self.get_consume_conn()) as curs:
-            lock = int(hashlib.sha256(str(message.message_id).encode('utf-8')).hexdigest(), 16) % 10**18
+            lock = int(hashlib.sha256(str(message.message_id).encode('utf-8'))
+                       .hexdigest(), 16) % 10**18
             curs.execute(dedent("""\
             UPDATE dramatiq.queue
                SET "state" = 'consumed',
