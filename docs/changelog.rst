@@ -1,6 +1,12 @@
 Dramatiq-pg Changelog
 =====================
 
+Version 0.8.0
+-------------
+
+- Fix typo.
+
+
 Version 0.7.1
 -------------
 
