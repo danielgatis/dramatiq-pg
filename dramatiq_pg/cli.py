@@ -116,10 +116,7 @@ def make_argument_parser():
 
 def flush_command(args):
     with transaction(args.pool) as curs:
-        curs.execute(dedent("""\
-        DELETE FROM dramatiq.queue
-         WHERE "state" IN ('queued', 'consumed');
-        """))
+        curs.execute(QUERIES.FLUSH)
         flushed = curs.rowcount
     logger.info("Flushed %d messages.", flushed)
 
@@ -132,27 +129,37 @@ def purge_command(args):
 
 def recover_command(args):
     with transaction(args.pool) as curs:
-        curs.execute(dedent("""\
-        UPDATE dramatiq.queue
-           SET state = 'queued'
-         WHERE state = 'consumed'
-           AND mtime < (NOW() AT TIME ZONE 'UTC') - interval %s;
-        """), (args.recover_minage,))
+        curs.execute(QUERIES.RECOVER, (args.recover_minage,))
         recovered = curs.rowcount
     logger.info("Recovered %s messages.", recovered)
 
 
 def stats_command(args):
     with transaction(args.pool) as curs:
-        curs.execute(dedent("""\
-        SELECT "state", count(1)
-          FROM dramatiq.queue
-        GROUP BY "state";
-        """))
+        curs.execute(QUERIES.STATS)
         stats = dict(curs.fetchall())
 
     for state in 'queued', 'consumed', 'done', 'rejected':
         print(f'{state}: {stats.get(state, 0)}')
+
+
+QUERIES = QueryManager(dict(
+    RECOVER=dedent("""\
+    UPDATE {schema}.{tablename}
+    SET state = 'queued'
+    WHERE state = 'consumed'
+        AND mtime < (NOW() AT TIME ZONE 'UTC') - interval %s;
+    """),
+    STATS=dedent("""\
+    SELECT "state", count(1)
+    FROM {schema}.{tablename}
+    GROUP BY "state";
+    """),
+    FLUSH=dedent("""\
+    DELETE FROM {schema}.{tablename}
+    WHERE "state" IN ('queued', 'consumed');
+    """),
+))
 
 
 if '__main__' == __name__:
