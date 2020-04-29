@@ -1,6 +1,12 @@
 Dramatiq-pg Changelog
 =====================
 
+Next version
+------------
+
+- Allow to customize schema and table names.
+
+
 Version 0.8.0
 -------------
 
