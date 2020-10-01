@@ -1,4 +1,5 @@
 import signal
+import time
 from datetime import datetime
 from random import randint
 
@@ -12,7 +13,7 @@ from example import (
 )
 
 
-@pytest.mark.timeout(8)
+@pytest.mark.timeout(12)
 def test_massive(listener, pgconn, witness, worker):
     count = 64
 
@@ -35,6 +36,15 @@ def test_massive(listener, pgconn, witness, worker):
         curs.execute("SELECT count(*) FROM functest.witness;")
         witness_count, = curs.fetchone()
     assert count == witness_count
+
+    time.sleep(2)  # allow some time for clearing the locks
+
+    with pgconn() as curs:
+        curs.execute("""
+        SELECT count(*) FROM pg_catalog.pg_locks WHERE locktype = 'advisory';
+        """)
+        locks, = curs.fetchone()
+    assert locks == 0
 
 
 @pytest.mark.timeout(8)

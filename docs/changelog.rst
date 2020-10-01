@@ -6,7 +6,8 @@ Next version
 
 - Allow to customize schema and table names.
 - Provide ``dramatiq-pg init`` helper command.
-
+- Correctly clear the advisory locks.
+  Contribution from @CaselIT.
 
 Version 0.8.0
 -------------
