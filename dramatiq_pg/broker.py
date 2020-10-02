@@ -1,4 +1,3 @@
-import hashlib
 import json
 import logging
 import time
@@ -23,7 +22,7 @@ from psycopg2.extras import Json
 
 from .utils import (
     ConnectionClosed, check_conn, getconn, make_pool,
-    transaction, QueryManager,
+    message_id_to_int64, transaction, QueryManager
 )
 from .results import PostgresBackend
 from .utils import wait_for_notifies
@@ -228,8 +227,7 @@ class PostgresConsumer(Consumer):
     def consume_one(self, message):
         # Race to process message.
         with transaction(self.get_consume_conn()) as curs:
-            lock = int(hashlib.sha256(str(message.message_id).encode('utf-8'))
-                       .hexdigest(), 16) % 10**18
+            lock = message_id_to_int64(message.message_id)
             curs.execute(
                 QUERIES.CONSUME_ONE,
                 (message.message_id, lock))
@@ -280,7 +278,7 @@ class PostgresConsumer(Consumer):
                     message_id = self.unlock_q.get(block=False)
                 except Empty:
                     return
-                lock = hash(str(message_id))
+                lock = message_id_to_int64(message_id)
                 logger.debug("Unlocking %s.", message_id)
                 curs.execute(dedent("""\
                 SELECT pg_advisory_unlock(%s);

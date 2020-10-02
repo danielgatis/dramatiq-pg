@@ -1,6 +1,7 @@
 import logging
 import select
 from contextlib import contextmanager
+from hashlib import sha256
 from urllib.parse import (
     parse_qsl,
     urlencode,
@@ -124,3 +125,14 @@ class QueryManager:
                 schema=quote_ident(schema or self.schema),
                 tablename=quote_ident(table or self.table),
             ))
+
+
+_max_size = 2**63
+
+
+def message_id_to_int64(message_id):
+    # create sha256 hash from input and create a 64 bit int from it, using
+    # 16 hex char. any 16 char range is ok. it takes the center ones
+    hex = sha256(str(message_id).encode('utf-8')).hexdigest()
+    unsigned = int(hex[24:40], 16)
+    return unsigned - _max_size

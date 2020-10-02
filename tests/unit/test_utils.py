@@ -1,4 +1,5 @@
 # For now, just run unit test along func tests.
+from uuid import uuid4
 
 
 def test_make_pool(mocker):
@@ -37,3 +38,25 @@ def test_quote_ident():
     assert '"table"' == quote_ident("table")
     assert '"with space"' == quote_ident("with space")
     assert '"with""quote"' == quote_ident("with\"quote")
+
+
+def test_message_id_to_int64(monkeypatch):
+    from dramatiq_pg.utils import message_id_to_int64
+
+    for _ in range(20):
+        assert message_id_to_int64(uuid4()).bit_length() <= 64
+
+    class MockSha256:
+        value = None
+
+        def __init__(self, value):
+            pass
+
+        def hexdigest(self):
+            return self.value
+
+    monkeypatch.setattr('dramatiq_pg.utils.sha256', MockSha256)
+    MockSha256.value = '0'*64
+    assert message_id_to_int64(uuid4()) == -2**63
+    MockSha256.value = 'f'*64
+    assert message_id_to_int64(uuid4()) == 2**63 - 1
