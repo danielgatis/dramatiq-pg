@@ -6,8 +6,9 @@ Next version
 
 - Allow to customize schema and table names.
 - Provide ``dramatiq-pg init`` helper command.
-- Correctly clear the advisory locks.
-  Contribution from @CaselIT.
+- Correctly clear the advisory locks. Contribution from `@CaselIT`_.
+- Use loose constraint on tenacity. By `@rouge8`_.
+
 
 Version 0.8.0
 -------------
@@ -97,3 +98,6 @@ Released 2019-02-22.
 
 -  First working implementation.
 -  Added func tests.
+
+.. _@CaselIT: https://gitlab.com/CaselIT
+.. _@rouge8: https://gitlab.com/rouge8
