@@ -79,4 +79,13 @@ dramatiq_pg is available under the PostgreSQL licence.
 
 ## Credit
 
-[Damien CAZEILS](http://www.damiencazeils.com/) created the logo.
+Thanks to all contributors :
+
+- Andy Freeland
+- Curtis Maloney, Django support.
+- Federico Caselli, bugfixes.
+- Giuseppe Papallo, bugfixes.
+- Rafal Kwasny, improvements.
+
+
+The logo is a creation of [Damien CAZEILS](http://www.damiencazeils.com/)
