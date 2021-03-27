@@ -195,7 +195,7 @@ class PostgresConsumer(Consumer):
                 check_conn(self._consume_conn)
             except ConnectionClosed:
                 logger.info("Connection closed. Reconnecting...")
-                self.pool.putconn(self._consum_conn)
+                self.pool.putconn(self._consume_conn)
                 self._consume_conn = None
 
         if self._consume_conn is None:
