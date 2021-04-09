@@ -5,6 +5,7 @@ Next version
 ------------
 
 - Fix retrying of message with Retries middleware. Reported by `@liveFreeOrCode`_.
+- Emit ``enqueue`` event. By `@liveFreeOrCode`_.
 
 
 Version 0.9.0

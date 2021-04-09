@@ -84,9 +84,11 @@ class PostgresBroker(Broker):
             QUERIES.ENQUEUE,
             (q, message.message_id, Json(message.asdict())))
 
+        logger.debug("Upserting %s in queue %s.", message.message_id, q)
+        self.emit_before("enqueue", message, delay)
         with transaction(self.pool) as curs:
-            logger.debug("Upserting %s in queue %s.", message.message_id, q)
             curs.execute(*insert)
+        self.emit_after("enqueue", message, delay)
         return message
 
 
