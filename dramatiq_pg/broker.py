@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from hashlib import sha256
 from queue import Empty, Queue
 from random import randint
 from textwrap import dedent
@@ -22,7 +23,7 @@ from psycopg2.extras import Json
 
 from .utils import (
     ConnectionClosed, check_conn, getconn, make_pool,
-    message_id_to_int64, transaction, QueryManager
+    transaction, QueryManager
 )
 from .results import PostgresBackend
 from .utils import wait_for_notifies
@@ -164,7 +165,7 @@ class PostgresConsumer(Consumer):
         with transaction(self.pool) as curs:
             channel = f"dramatiq.{message.queue_name}.ack"
             payload = Json(message.asdict())
-            self.unlock_q.put_nowait(message.message_id)
+            self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for ACK %s.", channel, message.message_id)
             # dramatiq always ack a message, even if it has been requeued by
@@ -230,7 +231,7 @@ class PostgresConsumer(Consumer):
     def consume_one(self, message):
         # Race to process message.
         with transaction(self.get_consume_conn()) as curs:
-            lock = message_id_to_int64(message.message_id)
+            lock = message_lock(message)
             curs.execute(
                 QUERIES.CONSUME_ONE,
                 (message.message_id, lock))
@@ -246,7 +247,7 @@ class PostgresConsumer(Consumer):
         with transaction(self.pool) as curs:
             # Use the same channel as ack. Actually means done.
             channel = f"dramatiq.{message.queue_name}.ack"
-            self.unlock_q.put_nowait(message.message_id)
+            self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for NACK %s.", channel, message.message_id)
             payload = Json(message.asdict())
@@ -277,11 +278,13 @@ class PostgresConsumer(Consumer):
         with transaction(self.get_consume_conn()) as curs:
             while True:
                 try:
-                    message_id = self.unlock_q.get(block=False)
+                    message = self.unlock_q.get(block=False)
                 except Empty:
                     return
-                lock = message_id_to_int64(message_id)
-                logger.debug("Unlocking %s.", message_id)
+                lock = message_lock(message)
+                logger.debug(
+                    "Unlocking %s@%s (%s).",
+                    message.message_id, message.queue_name, lock)
                 curs.execute(dedent("""\
                 SELECT pg_advisory_unlock(%s);
                 """), (lock,))
@@ -299,6 +302,20 @@ class PostgresConsumer(Consumer):
                 (tuple(m.message_id for m in messages),))
             # We don't bother about locks, because requeue occurs on worker
             # stop.
+
+
+_max_positive_int = 2**63
+
+
+def message_lock(message):
+    # create sha256 hash from input and create a 64 bit int from it, using
+    # 16 hex char. any 16 char range is ok. it takes the center ones
+    global_id = message.queue_name + str(message.message_id)
+    hex = sha256(global_id.encode('utf-8')).hexdigest()
+    unsigned = int(hex[24:40], 16)
+    # PostgreSQL lock is a signed int on 64 bytes. Shift unsigned value from
+    # interval [0..2**64] to interval [-2**63..2**63].
+    return unsigned - _max_positive_int
 
 
 QUERIES = QueryManager(dict(
