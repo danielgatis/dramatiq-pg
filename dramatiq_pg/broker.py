@@ -74,6 +74,10 @@ class PostgresBroker(Broker):
             # the same table.
             self.emit_after("declare_queue", queue_name)
 
+            delayed_name = dq_name(queue_name)
+            self.delay_queues.add(delayed_name)
+            self.emit_after("declare_delay_queue", delayed_name)
+
     def enqueue(self, message, *, delay=None):
         if delay:
             message = message.copy(queue_name=dq_name(message.queue_name))
