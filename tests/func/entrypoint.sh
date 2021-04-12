@@ -34,6 +34,7 @@ pip3 --disable-pip-version-check install --user poetry==1.0.0b2 cleo==0.7.5
 poetry install
 poetry run flake8 dramatiq_pg/ tests/
 poetry run make -C docs/ check
+# For now, just run unit test along func tests.
 poetry run pytest -x tests/unit/
 poetry run dramatiq-pg init
 poetry run tests/pypsql < tests/func/schema.sql

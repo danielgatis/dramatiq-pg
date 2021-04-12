@@ -1,6 +1,3 @@
-# For now, just run unit test along func tests.
-
-
 def test_make_pool(mocker):
     tp = mocker.patch('dramatiq_pg.utils.ThreadedConnectionPool')
     from dramatiq_pg.utils import make_pool
