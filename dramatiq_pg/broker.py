@@ -265,9 +265,7 @@ class PostgresConsumer(Consumer):
         # messages. That's not a problem because we are able to skip spurious
         # notifies.
         with transaction(conn) as curs:
-            curs.execute(
-                QUERIES.FETCH_PENDING,
-                ((self.queue_name, dq_name(self.queue_name)),))
+            curs.execute(QUERIES.FETCH_PENDING, (self.queue_name,))
             return [
                 Notify(pid=0, channel=None, payload=r[0])
                 for r in curs
@@ -346,7 +344,7 @@ QUERIES = QueryManager(dict(
         SELECT message::text
             FROM {schema}.{tablename}
             WHERE state IN ('queued', 'consumed')
-            AND queue_name IN %s;
+            AND queue_name = %s;
         """),
     NACK=dedent("""\
         WITH updated AS (
