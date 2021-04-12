@@ -175,7 +175,7 @@ class PostgresConsumer(Consumer):
             curs.execute(
                 QUERIES.ACK,
                 (payload, message.message_id, message.queue_name, channel))
-        self.in_processing -= 1
+        self.in_processing.remove(message.message_id)
 
     def auto_purge(self):
         # Automatically purge messages every 100k iteration. Dramatiq defaults
@@ -230,6 +230,10 @@ class PostgresConsumer(Consumer):
         return self._listen_conn
 
     def consume_one(self, message):
+        if message.message_id in self.in_processing:
+            logger.debug("%s already consumed by self.", message.message_id)
+            return
+
         # Race to process message.
         with transaction(self.get_consume_conn()) as curs:
             lock = message_lock(message)
@@ -255,7 +259,7 @@ class PostgresConsumer(Consumer):
             curs.execute(
                 QUERIES.NACK,
                 (payload, message.message_id, message.queue_name, channel))
-        self.in_processing -= 1
+        self.in_processing.remove(message.message_id)
 
     def fetch_pending_notifies(self):
         logger.debug("Polling for lost messages in %s.", self.queue_name)
