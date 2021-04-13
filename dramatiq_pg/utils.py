@@ -117,7 +117,7 @@ class QueryManager:
         self.table = table
         self.build_queries(schema, table)
 
-    def build_queries(self, schema, table):
+    def build_queries(self, schema=None, table=None):
         if not (schema or table):
             return
 
