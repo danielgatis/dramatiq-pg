@@ -2,6 +2,15 @@ stages:
 - test
 
 
+lint:
+  stage: test
+  image: dalibo/labs-sdk:bullseye
+  script:
+  - poetry install
+  - poetry run flake8 dramatiq_pg/ tests/
+  - poetry run pyright
+  - poetry run make -C docs/ check
+
 tests:
   stage: test
   image: circleci/python:3.7-stretch

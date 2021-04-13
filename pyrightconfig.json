@@ -1,0 +1,6 @@
+{
+    "include": [
+        "dramatiq_pg"
+    ],
+    "useLibraryCodeForTypes": true
+}
