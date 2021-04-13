@@ -87,12 +87,12 @@ def transaction(conn_or_pool, listen=None):
     if listen:
         # This is for NOTIFY consistency, according to psycopg2 doc.
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        channel = pq_quote_ident(listen, conn)
 
     try:
         with conn:  # Wraps in a transaction.
             with conn.cursor() as curs:
                 if listen:
+                    channel = pq_quote_ident(listen, conn)
                     curs.execute(f"LISTEN {channel};")
                 yield curs
     finally:
