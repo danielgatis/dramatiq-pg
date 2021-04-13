@@ -4,6 +4,8 @@ Dramatiq-pg Changelog
 Next version
 ------------
 
+- Fix duplicate execution of delayed message. Reported by `@rmcgover`_ and
+  `@liveFreeOrCode`_.
 - Fix retrying of message with Retries middleware. Reported by `@liveFreeOrCode`_.
 - Emit ``enqueue`` event. By `@liveFreeOrCode`_.
 
@@ -110,4 +112,5 @@ Released 2019-02-22.
 
 .. _@CaselIT: https://gitlab.com/CaselIT
 .. _@liveFreeOrCode: https://gitlab.com/liveFreeOrCode
+.. _@rmcgover: https://gitlab.com/rmcgover
 .. _@rouge8: https://gitlab.com/rouge8

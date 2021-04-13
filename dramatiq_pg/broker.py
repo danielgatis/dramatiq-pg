@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from hashlib import sha256
 from queue import Empty, Queue
 from random import randint
 from textwrap import dedent
@@ -22,7 +23,7 @@ from psycopg2.extras import Json
 
 from .utils import (
     ConnectionClosed, check_conn, getconn, make_pool,
-    message_id_to_int64, transaction, QueryManager
+    transaction, QueryManager
 )
 from .results import PostgresBackend
 from .utils import wait_for_notifies
@@ -74,6 +75,10 @@ class PostgresBroker(Broker):
             # the same table.
             self.emit_after("declare_queue", queue_name)
 
+            delayed_name = dq_name(queue_name)
+            self.delay_queues.add(delayed_name)
+            self.emit_after("declare_delay_queue", delayed_name)
+
     def enqueue(self, message, *, delay=None):
         if delay:
             message = message.copy(queue_name=dq_name(message.queue_name))
@@ -101,7 +106,7 @@ class PostgresConsumer(Consumer):
         self.queue_name = queue_name
         self.timeout = timeout // 1000
         self.unlock_q = Queue()
-        self.in_processing = 0
+        self.in_processing = set()
         self.prefetch = prefetch
         self.misses = 0
 
@@ -115,13 +120,14 @@ class PostgresConsumer(Consumer):
             logger.debug(
                 "Found %s pending messages in queue %s.",
                 len(self.notifies), self.queue_name)
-        #
-        if self.in_processing >= self.prefetch:
+
+        processing = len(self.in_processing)
+        if processing >= self.prefetch:
             # Wait and don't consume the message, other worker will be faster
             self.misses, backoff_ms = compute_backoff(self.misses,
                                                       max_backoff=1000)
             logger.debug(f"Too many messages in processing:"
-                         f" {self.in_processing}"
+                         f" {processing}"
                          f" sleeping {backoff_ms}")
             time.sleep(backoff_ms / 1000)
             return None
@@ -143,7 +149,7 @@ class PostgresConsumer(Consumer):
             message = Message(**payload)
             mid = message.message_id
             if self.consume_one(message):
-                self.in_processing += 1
+                self.in_processing.add(message.message_id)
                 return MessageProxy(message)
             else:
                 logger.debug("Message %s already consumed. Skipping.", mid)
@@ -160,6 +166,7 @@ class PostgresConsumer(Consumer):
         with transaction(self.pool) as curs:
             channel = f"dramatiq.{message.queue_name}.ack"
             payload = Json(message.asdict())
+            self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for ACK %s.", channel, message.message_id)
             # dramatiq always ack a message, even if it has been requeued by
@@ -167,9 +174,8 @@ class PostgresConsumer(Consumer):
             # `consumed`.
             curs.execute(
                 QUERIES.ACK,
-                (payload, message.message_id, channel))
-            self.unlock_q.put_nowait(message.message_id)
-        self.in_processing -= 1
+                (payload, message.message_id, message.queue_name, channel))
+        self.in_processing.remove(message.message_id)
 
     def auto_purge(self):
         # Automatically purge messages every 100k iteration. Dramatiq defaults
@@ -218,18 +224,19 @@ class PostgresConsumer(Consumer):
         # This is for NOTIFY consistency, according to psycopg2 doc.
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
         channel = quote_ident(f"dramatiq.{self.queue_name}.enqueue", conn)
-        dq = dq_name(self.queue_name)
-        dchannel = quote_ident(f"dramatiq.{dq}.enqueue", conn)
         with conn.cursor() as curs:
-            logger.debug(
-                "Listening on channels %s, %s.", channel, dchannel)
-            curs.execute(f"LISTEN {channel}; LISTEN {dchannel};")
+            logger.debug("Listening on channel %s.", channel)
+            curs.execute(f"LISTEN {channel};")
         return self._listen_conn
 
     def consume_one(self, message):
+        if message.message_id in self.in_processing:
+            logger.debug("%s already consumed by self.", message.message_id)
+            return
+
         # Race to process message.
         with transaction(self.get_consume_conn()) as curs:
-            lock = message_id_to_int64(message.message_id)
+            lock = message_lock(message)
             curs.execute(
                 QUERIES.CONSUME_ONE,
                 (message.message_id, lock))
@@ -245,27 +252,27 @@ class PostgresConsumer(Consumer):
         with transaction(self.pool) as curs:
             # Use the same channel as ack. Actually means done.
             channel = f"dramatiq.{message.queue_name}.ack"
+            self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for NACK %s.", channel, message.message_id)
             payload = Json(message.asdict())
             curs.execute(
                 QUERIES.NACK,
-                (payload, message.message_id, channel))
-            self.unlock_q.put_nowait(message.message_id)
-        self.in_processing -= 1
+                (payload, message.message_id, message.queue_name, channel))
+        self.in_processing.remove(message.message_id)
 
     def fetch_pending_notifies(self):
+        logger.debug("Polling for lost messages in %s.", self.queue_name)
         # Get or open connection.
         conn = self.get_listen_conn()
         # We may have received a notify between LISTEN and SELECT of pending
         # messages. That's not a problem because we are able to skip spurious
         # notifies.
+        channel = f"dramatiq.{self.queue_name}.enqueue"
         with transaction(conn) as curs:
-            curs.execute(
-                QUERIES.FETCH_PENDING,
-                ((self.queue_name, dq_name(self.queue_name)),))
+            curs.execute(QUERIES.FETCH_PENDING, (self.queue_name,))
             return [
-                Notify(pid=0, channel=None, payload=r[0])
+                Notify(pid=0, channel=channel, payload=r[0])
                 for r in curs
             ]
 
@@ -277,11 +284,13 @@ class PostgresConsumer(Consumer):
         with transaction(self.get_consume_conn()) as curs:
             while True:
                 try:
-                    message_id = self.unlock_q.get(block=False)
+                    message = self.unlock_q.get(block=False)
                 except Empty:
                     return
-                lock = message_id_to_int64(message_id)
-                logger.debug("Unlocking %s.", message_id)
+                lock = message_lock(message)
+                logger.debug(
+                    "Unlocking %s@%s (%s).",
+                    message.message_id, message.queue_name, lock)
                 curs.execute(dedent("""\
                 SELECT pg_advisory_unlock(%s);
                 """), (lock,))
@@ -301,12 +310,27 @@ class PostgresConsumer(Consumer):
             # stop.
 
 
+_max_positive_int = 2**63
+
+
+def message_lock(message):
+    # create sha256 hash from input and create a 64 bit int from it, using
+    # 16 hex char. any 16 char range is ok. it takes the center ones
+    global_id = message.queue_name + str(message.message_id)
+    hex = sha256(global_id.encode('utf-8')).hexdigest()
+    unsigned = int(hex[24:40], 16)
+    # PostgreSQL lock is a signed int on 64 bytes. Shift unsigned value from
+    # interval [0..2**64] to interval [-2**63..2**63].
+    return unsigned - _max_positive_int
+
+
 QUERIES = QueryManager(dict(
     ACK=dedent("""\
         WITH updated AS (
             UPDATE {schema}.{tablename}
                 SET "state" = 'done', message = %s
             WHERE message_id = %s
+                AND queue_name = %s
                 AND state = 'consumed'
             RETURNING message
         )
@@ -342,13 +366,14 @@ QUERIES = QueryManager(dict(
         SELECT message::text
             FROM {schema}.{tablename}
             WHERE state IN ('queued', 'consumed')
-            AND queue_name IN %s;
+            AND queue_name = %s;
         """),
     NACK=dedent("""\
         WITH updated AS (
             UPDATE {schema}.{tablename}
                 SET "state" = 'rejected', message = %s
             WHERE message_id = %s
+                AND queue_name = %s
                 AND state <> 'rejected'
             RETURNING message
         )
