@@ -1,8 +1,10 @@
 Dramatiq-pg Changelog
 =====================
 
-Next version
+Version 0.10
 ------------
+
+Released 2021-04-27.
 
 - Fix duplicate execution of delayed message. Reported by `@rmcgover`_ and
   `@liveFreeOrCode`_.
