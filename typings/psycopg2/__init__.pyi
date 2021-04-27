@@ -1,0 +1,6 @@
+class DatabaseError(Exception):
+    ...
+
+
+class OperationalError(Exception):
+    ...

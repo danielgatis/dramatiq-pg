@@ -87,12 +87,12 @@ def transaction(conn_or_pool, listen=None):
     if listen:
         # This is for NOTIFY consistency, according to psycopg2 doc.
         conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-        channel = pq_quote_ident(listen, conn)
 
     try:
         with conn:  # Wraps in a transaction.
             with conn.cursor() as curs:
                 if listen:
+                    channel = pq_quote_ident(listen, conn)
                     curs.execute(f"LISTEN {channel};")
                 yield curs
     finally:
@@ -117,7 +117,7 @@ class QueryManager:
         self.table = table
         self.build_queries(schema, table)
 
-    def build_queries(self, schema, table):
+    def build_queries(self, schema=None, table=None):
         if not (schema or table):
             return
 
@@ -126,3 +126,7 @@ class QueryManager:
                 schema=quote_ident(schema or self.schema),
                 tablename=quote_ident(table or self.table),
             ))
+
+    # Tell pytype/pyright this class has dynamic attributes.
+    def __getattr__(self, name):
+        raise AttributeError(name)

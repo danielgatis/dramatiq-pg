@@ -1,4 +1,5 @@
 import argparse
+import bdb
 import logging
 import os
 import pdb
@@ -27,7 +28,7 @@ def entrypoint():
 
     try:
         exit(main())
-    except (pdb.bdb.BdbQuit, KeyboardInterrupt):
+    except (bdb.BdbQuit, KeyboardInterrupt):
         logger.info("Interrupted.")
     except Exception:
         logger.exception('Unhandled error:')
@@ -62,8 +63,8 @@ def main():
         return 1
 
     if args.tablename:
-        BROKER_QUERIES.build_queries(args.tablename)
-        QUERIES.build_queries(args.tablename)
+        BROKER_QUERIES.build_queries(table=args.tablename)
+        QUERIES.build_queries(table=args.tablename)
 
     return args.command(args)
 
