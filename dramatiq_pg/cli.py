@@ -62,9 +62,9 @@ def main():
         logger.error("Failed to connect: %s.", e)
         return 1
 
-    if args.tablename:
-        BROKER_QUERIES.build_queries(table=args.tablename)
-        QUERIES.build_queries(table=args.tablename)
+    kw = dict(schema=args.schemaname, table=args.tablename)
+    BROKER_QUERIES.build_queries(**kw)
+    QUERIES.build_queries(**kw)
 
     return args.command(args)
 
@@ -89,10 +89,19 @@ def make_argument_parser():
         help="Postgres connection string.",
     )
     parser.add_argument(
+        "--schemaname",
+        action="store", dest="schemaname", default='dramatiq',
+        metavar="SCHEMA",
+        help=(
+            'Alternative database schema for Dramatiq-pg DDL.'
+            ' Default is "%(default)s".'
+        ),
+    )
+    parser.add_argument(
         "--tablename",
-        action="store", dest="tablename", default=None,
-        metavar="TABLENAME",
-        help="Alternative full table name including schema.",
+        action="store", dest="tablename", default='queue',
+        metavar="TABLE",
+        help='Alternative table name for message. Default is "%(default)s".',
     )
 
     subparsers = parser.add_subparsers()
