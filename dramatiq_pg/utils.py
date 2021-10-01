@@ -1,3 +1,4 @@
+import functools
 import logging
 import select
 from contextlib import contextmanager
@@ -7,7 +8,9 @@ from urllib.parse import (
     urlparse,
 )
 
-from psycopg2 import DatabaseError, OperationalError
+from dramatiq.errors import ConnectionError
+from psycopg2 import OperationalError
+from psycopg2.errors import AdminShutdown
 from psycopg2.extensions import (
     ISOLATION_LEVEL_AUTOCOMMIT,
     quote_ident as pq_quote_ident,
@@ -19,13 +22,9 @@ import tenacity
 logger = logging.getLogger(__name__)
 
 
-class ConnectionClosed(DatabaseError):
-    pass
-
-
 retry_pg = tenacity.retry(
     retry=tenacity.retry_if_exception_type(
-      (OperationalError, ConnectionClosed),
+      (OperationalError, ConnectionError),
     ),
     reraise=True,
     wait=tenacity.wait_random_exponential(multiplier=1, max=30),
@@ -37,13 +36,15 @@ retry_pg = tenacity.retry(
 def check_conn(conn):
     try:
         conn.poll()
-    except OperationalError as e:
-        logger.debug("Closing connexion due to error: %s", e)
-        try:
-            conn.close()
-        except Exception as close_e:
-            logger.debug("Failed to close connexion: %s", close_e)
-        raise ConnectionClosed(str(e))
+    except (AdminShutdown, OperationalError) as e:
+        if not conn.closed:
+            logger.debug("Closing connexion due to error: %s", e)
+            try:
+                conn.close()
+                pass
+            except Exception as close_e:
+                logger.debug("Failed to close connexion: %s", close_e)
+        raise ConnectionError(str(e)) from None
     return conn
 
 
@@ -53,7 +54,7 @@ def getconn(pool):
     conn = pool.getconn()
     try:
         check_conn(conn)
-    except ConnectionClosed:
+    except ConnectionError:
         pool.putconn(conn)
         raise  # Let tenacity control retry.
     return conn
@@ -82,6 +83,19 @@ def make_pool(url, maxconn=16):
     pool = ThreadedConnectionPool(0, maxconn, connstring)
     pool.minconn = minconn
     return pool
+
+
+def raise_connection_error(fn):
+    # Raises Dramatiq connection error on Psycopg2 error
+
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        try:
+            return fn(*a, **kw)
+        except OperationalError as e:
+            raise ConnectionError(str(e))
+
+    return wrapper
 
 
 def quote_ident(raw):
