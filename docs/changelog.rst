@@ -1,6 +1,12 @@
 Dramatiq-pg Changelog
 =====================
 
+Unreleased
+----------
+
+- Add new --schemaname argument to CLI. Reported by `@davidolrik`_.
+
+
 Version 0.10
 ------------
 
@@ -113,6 +119,7 @@ Released 2019-02-22.
 -  Added func tests.
 
 .. _@CaselIT: https://gitlab.com/CaselIT
+.. _@davidolrik: https://gitlab.com/davidolrik
 .. _@liveFreeOrCode: https://gitlab.com/liveFreeOrCode
 .. _@rmcgover: https://gitlab.com/rmcgover
 .. _@rouge8: https://gitlab.com/rouge8
