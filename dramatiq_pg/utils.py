@@ -38,6 +38,11 @@ def check_conn(conn):
     try:
         conn.poll()
     except OperationalError as e:
+        logger.debug("Closing connexion due to error: %s", e)
+        try:
+            conn.close()
+        except Exception as close_e:
+            logger.debug("Failed to close connexion: %s", close_e)
         raise ConnectionClosed(str(e))
     return conn
 
