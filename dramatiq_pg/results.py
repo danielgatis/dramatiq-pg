@@ -12,7 +12,9 @@ from textwrap import dedent
 from dramatiq.results import ResultBackend, ResultMissing, ResultTimeout
 from psycopg2.extras import Json
 
-from .utils import make_pool, transaction, wait_for_notifies, QueryManager
+from .utils import (
+    make_pool, transaction, retry_pg, wait_for_notifies, QueryManager,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,7 @@ class PostgresBackend(ResultBackend):
         # Just use message_id, it's UNIQUE in table.
         return str(message.message_id)
 
+    @retry_pg
     def get_result(self, message, *, block=False, timeout=None):
         key = self.build_message_key(message)
 
@@ -59,6 +62,7 @@ class PostgresBackend(ResultBackend):
         # Don't query database, use NOTIFY payload.
         return json.loads(notify.payload)
 
+    @retry_pg
     def _store(self, key, result, ttl):
         with transaction(self.pool) as curs:
             logger.debug("Storing result for %s.", key)

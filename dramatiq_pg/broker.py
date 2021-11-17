@@ -23,7 +23,7 @@ from psycopg2.extensions import (
 from psycopg2.extras import Json
 
 from .utils import (
-    check_conn, getconn, make_pool, raise_connection_error,
+    check_conn, getconn, make_pool, raise_connection_error, retry_pg,
     transaction, QueryManager
 )
 from .results import PostgresBackend
@@ -80,6 +80,7 @@ class PostgresBroker(Broker):
             self.delay_queues.add(delayed_name)
             self.emit_after("declare_delay_queue", delayed_name)
 
+    @retry_pg
     def enqueue(self, message, *, delay=None):
         if delay:
             message = message.copy(queue_name=dq_name(message.queue_name))
@@ -211,7 +212,7 @@ class PostgresConsumer(Consumer):
                 self._consume_conn = None
 
         if self._consume_conn is None:
-            logger.debug("Using new connection for message consumption.")
+            logger.debug("Asking new connection for message consumption.")
             self._consume_conn = getconn(self.pool)
 
         return self._consume_conn
