@@ -5,6 +5,7 @@ Unreleased
 ----------
 
 - Add new --schemaname argument to CLI. Reported by `@davidolrik`_.
+- Use Dramatiq customizable encoder.
 
 
 Version 0.10

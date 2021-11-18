@@ -1,5 +1,6 @@
 import functools
 import logging
+import json
 import select
 from contextlib import contextmanager, ExitStack
 from urllib.parse import (
@@ -8,6 +9,7 @@ from urllib.parse import (
     urlparse,
 )
 
+from dramatiq import Message, MessageProxy, get_encoder
 from dramatiq.errors import ConnectionError
 from psycopg2 import __libpq_version__
 from psycopg2 import InterfaceError, OperationalError
@@ -198,3 +200,12 @@ class QueryManager:
     # Tell pytype/pyright this class has dynamic attributes.
     def __getattr__(self, name):
         raise AttributeError(name)
+
+
+def tidy4json(data):
+    if isinstance(data, (Message, MessageProxy)):
+        # Encode message using Dramatiq encoder. But immediatly decode it as
+        # standard json to send native json to PostgreSQL.
+        return json.loads(data.encode())
+    else:
+        return json.loads(get_encoder().encode(data))
