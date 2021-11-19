@@ -12,6 +12,7 @@ from dramatiq.broker import (
     MessageProxy,
 )
 from dramatiq.common import current_millis, dq_name, compute_backoff
+from dramatiq.errors import ConnectionError
 from dramatiq.message import Message
 from dramatiq.results import Results
 from psycopg2.extensions import (
@@ -22,7 +23,7 @@ from psycopg2.extensions import (
 from psycopg2.extras import Json
 
 from .utils import (
-    ConnectionClosed, check_conn, getconn, make_pool,
+    check_conn, getconn, make_pool, raise_connection_error, retry_pg,
     transaction, QueryManager
 )
 from .results import PostgresBackend
@@ -79,6 +80,7 @@ class PostgresBroker(Broker):
             self.delay_queues.add(delayed_name)
             self.emit_after("declare_delay_queue", delayed_name)
 
+    @retry_pg
     def enqueue(self, message, *, delay=None):
         if delay:
             message = message.copy(queue_name=dq_name(message.queue_name))
@@ -110,6 +112,7 @@ class PostgresConsumer(Consumer):
         self.prefetch = prefetch
         self.misses = 0
 
+    @raise_connection_error
     def __next__(self):
         # This function is executed each second.
 
@@ -160,6 +163,7 @@ class PostgresConsumer(Consumer):
         # We have nothing to do, let's see if the queue needs some cleaning.
         self.auto_purge()
 
+    @raise_connection_error
     def ack(self, message):
         # This function is executed in worker thread!
 
@@ -177,6 +181,7 @@ class PostgresConsumer(Consumer):
                 (payload, message.message_id, message.queue_name, channel))
         self.in_processing.remove(message.message_id)
 
+    @raise_connection_error
     def auto_purge(self):
         # Automatically purge messages every 100k iteration. Dramatiq defaults
         # to 1s. This mean about 1 purge for 28h idle.
@@ -201,24 +206,27 @@ class PostgresConsumer(Consumer):
         if self._consume_conn is not None:
             try:
                 check_conn(self._consume_conn)
-            except ConnectionClosed:
+            except ConnectionError:
                 logger.info("Connection closed. Reconnecting...")
                 self.pool.putconn(self._consume_conn)
                 self._consume_conn = None
 
         if self._consume_conn is None:
-            logger.debug("Using new connection for message consumption.")
+            logger.debug("Asking new connection for message consumption.")
             self._consume_conn = getconn(self.pool)
 
         return self._consume_conn
 
+    @raise_connection_error
     def get_listen_conn(self):
         # Opens listening connection with proper configuration.
         if self._listen_conn is not None:
             try:
                 return check_conn(self._listen_conn)
-            except ConnectionClosed:
+            except ConnectionError:
                 logger.info("Connection closed. Reconnecting...")
+                self.pool.putconn(self._listen_conn)
+                self._listen_conn = None
 
         self._listen_conn = conn = getconn(self.pool)
         # This is for NOTIFY consistency, according to psycopg2 doc.
@@ -229,6 +237,7 @@ class PostgresConsumer(Consumer):
             curs.execute(f"LISTEN {channel};")
         return self._listen_conn
 
+    @raise_connection_error
     def consume_one(self, message):
         if message.message_id in self.in_processing:
             logger.debug("%s already consumed by self.", message.message_id)
@@ -246,6 +255,7 @@ class PostgresConsumer(Consumer):
                     "Consumed %s@%s.", message.message_id, message.queue_name)
             return 1 == curs.rowcount
 
+    @raise_connection_error
     def nack(self, message):
         # This function is executed in worker thread.
 
@@ -261,6 +271,7 @@ class PostgresConsumer(Consumer):
                 (payload, message.message_id, message.queue_name, channel))
         self.in_processing.remove(message.message_id)
 
+    @raise_connection_error
     def fetch_pending_notifies(self):
         logger.debug("Polling for lost messages in %s.", self.queue_name)
         # Get or open connection.
@@ -276,10 +287,12 @@ class PostgresConsumer(Consumer):
                 for r in curs
             ]
 
+    @raise_connection_error
     def poll_for_notify(self):
         self.notifies += wait_for_notifies(
             self.get_listen_conn(), self.timeout)
 
+    @raise_connection_error
     def purge_locks(self):
         with transaction(self.get_consume_conn()) as curs:
             while True:
@@ -296,6 +309,7 @@ class PostgresConsumer(Consumer):
                 """), (lock,))
                 self.unlock_q.task_done()
 
+    @raise_connection_error
     def requeue(self, messages):
         messages = list(messages)
         if not len(messages):
