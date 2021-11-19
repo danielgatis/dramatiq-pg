@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from hashlib import sha256
@@ -24,7 +23,7 @@ from psycopg2.extras import Json
 
 from .utils import (
     check_conn, getconn, make_pool, raise_connection_error, retry_pg,
-    transaction, QueryManager
+    tidy4json, transaction, QueryManager
 )
 from .results import PostgresBackend
 from .utils import wait_for_notifies
@@ -89,7 +88,7 @@ class PostgresBroker(Broker):
         q = message.queue_name
         insert = (
             QUERIES.ENQUEUE,
-            (q, message.message_id, Json(message.asdict())))
+            (q, message.message_id, Json(tidy4json(message))))
 
         logger.debug("Upserting %s in queue %s.", message.message_id, q)
         self.emit_before("enqueue", message, delay)
@@ -148,14 +147,14 @@ class PostgresConsumer(Consumer):
         # If we have some notifies, loop to find one todo.
         while self.notifies:
             notify = self.notifies.pop(0)
-            payload = json.loads(notify.payload)
-            message = Message(**payload)
-            mid = message.message_id
+            message = Message.decode(notify.payload.encode('utf-8'))
             if self.consume_one(message):
                 self.in_processing.add(message.message_id)
                 return MessageProxy(message)
             else:
-                logger.debug("Message %s already consumed. Skipping.", mid)
+                logger.debug(
+                    "Message %s already consumed. Skipping.",
+                    message.message_id)
 
         # No message to process. Let's clean locks.
         self.purge_locks()
@@ -169,16 +168,16 @@ class PostgresConsumer(Consumer):
 
         with transaction(self.pool) as curs:
             channel = f"dramatiq.{message.queue_name}.ack"
-            payload = Json(message.asdict())
+            payload = tidy4json(message)
             self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for ACK %s.", channel, message.message_id)
             # dramatiq always ack a message, even if it has been requeued by
             # the Retries middleware. Thus, only update message in state
             # `consumed`.
-            curs.execute(
-                QUERIES.ACK,
-                (payload, message.message_id, message.queue_name, channel))
+            curs.execute(QUERIES.ACK, (
+                Json(payload), message.message_id, message.queue_name, channel,
+            ))
         self.in_processing.remove(message.message_id)
 
     @raise_connection_error
@@ -265,10 +264,10 @@ class PostgresConsumer(Consumer):
             self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for NACK %s.", channel, message.message_id)
-            payload = Json(message.asdict())
-            curs.execute(
-                QUERIES.NACK,
-                (payload, message.message_id, message.queue_name, channel))
+            payload = tidy4json(message)
+            curs.execute(QUERIES.NACK, (
+                Json(payload), message.message_id, message.queue_name, channel,
+            ))
         self.in_processing.remove(message.message_id)
 
     @raise_connection_error

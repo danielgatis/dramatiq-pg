@@ -5,7 +5,6 @@
 # https://dramatiq.io/cookbook.html#results.
 #
 
-import json
 import logging
 from textwrap import dedent
 
@@ -13,7 +12,8 @@ from dramatiq.results import ResultBackend, ResultMissing, ResultTimeout
 from psycopg2.extras import Json
 
 from .utils import (
-    make_pool, transaction, retry_pg, wait_for_notifies, QueryManager,
+    make_pool, tidy4json, transaction, retry_pg, wait_for_notifies,
+    QueryManager,
 )
 
 
@@ -60,13 +60,15 @@ class PostgresBackend(ResultBackend):
             raise ResultTimeout(message)
         notify, = notifies
         # Don't query database, use NOTIFY payload.
-        return json.loads(notify.payload)
+        return self.encoder.decode(notify.payload.encode('utf-8'))
 
     @retry_pg
     def _store(self, key, result, ttl):
         with transaction(self.pool) as curs:
             logger.debug("Storing result for %s.", key)
-            curs.execute(QUERIES.STORE, (key, Json(result), f"{ttl} ms",))
+            curs.execute(QUERIES.STORE, (
+                key, Json(tidy4json(result)), f"{ttl} ms",
+            ))
             if 0 == curs.rowcount:
                 raise Exception(f"Can't store result of message {key}.")
 
