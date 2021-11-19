@@ -1,8 +1,10 @@
 Dramatiq-pg Changelog
 =====================
 
-Unreleased
-----------
+Version 0.11
+------------
+
+Released 2021-11-19.
 
 - Add new --schemaname argument to CLI. Reported by `@davidolrik`_.
 - Use Dramatiq customizable encoder.
