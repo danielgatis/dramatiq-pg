@@ -6,6 +6,9 @@ Unreleased
 
 - Add new --schemaname argument to CLI. Reported by `@davidolrik`_.
 - Use Dramatiq customizable encoder.
+- Enhance reliability: configure keepalives, retry on error, cooperate with
+  Dramatiq self-healing and more.
+- Set libpq ``application_name``.
 
 
 Version 0.10
