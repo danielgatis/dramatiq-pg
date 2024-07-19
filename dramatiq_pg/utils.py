@@ -196,10 +196,6 @@ class QueryManager:
                 ),
             )
 
-    # Tell pytype/pyright this class has dynamic attributes.
-    def __getattr__(self, name):
-        raise AttributeError(name)
-
 
 def tidy4json(data):
     if isinstance(data, (Message, MessageProxy)):
