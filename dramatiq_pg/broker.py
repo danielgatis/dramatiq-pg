@@ -88,6 +88,7 @@ class PostgresBroker(Broker):
 
     @retry_pg
     def enqueue(self, message, *, delay=None):
+        self.emit_before("enqueue", message, delay)
         if delay:
             message = message.copy(queue_name=dq_name(message.queue_name))
             message.options["eta"] = current_millis() + delay
@@ -104,7 +105,6 @@ class PostgresBroker(Broker):
         )
 
         logger.debug("Upserting %s in queue %s.", message.message_id, q)
-        self.emit_before("enqueue", message, delay)
         with transaction(self.pool) as curs:
             curs.execute(*insert)
         self.emit_after("enqueue", message, delay)
