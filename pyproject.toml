@@ -13,7 +13,7 @@ include = ["dramatiq-pg/schema.sql"]
 [tool.poetry.dependencies]
 python = "^3.6"
 dramatiq = "^1.5"
-tenacity = "^8"
+tenacity = ">=8,<10"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.7"
