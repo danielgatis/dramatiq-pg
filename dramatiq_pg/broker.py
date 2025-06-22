@@ -195,7 +195,6 @@ class PostgresConsumer(Consumer):
         with transaction(self.pool) as curs:
             channel = f"dramatiq.{message.queue_name}.ack"
             payload = tidy4json(message)
-            self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for ACK %s.", channel, message.message_id
             )
@@ -212,6 +211,7 @@ class PostgresConsumer(Consumer):
                     message.message_id,
                 ),
             )
+        self.unlock_q.put_nowait(message)
         self.in_processing.remove(message.message_id)
 
     @raise_connection_error
@@ -281,11 +281,18 @@ class PostgresConsumer(Consumer):
             lock = message_lock(message)
             curs.execute(QUERIES.CONSUME_ONE, (message.message_id, lock))
             # If no row was updated, this mean another worker has consumed it.
-            if curs.rowcount:
+            successfully_consumed = curs.rowcount == 1
+
+            if successfully_consumed:
                 logger.info(
                     "Consumed %s@%s.", message.message_id, message.queue_name
                 )
-            return 1 == curs.rowcount
+            else:
+                # Release the lock in case lock acquisition took place before
+                # other clauses failed.
+                curs.execute(QUERIES.RELEASE_ONE, (lock,))
+
+            return successfully_consumed
 
     @raise_connection_error
     def nack(self, message):
@@ -294,7 +301,6 @@ class PostgresConsumer(Consumer):
         with transaction(self.pool) as curs:
             # Use the same channel as ack. Actually means done.
             channel = f"dramatiq.{message.queue_name}.ack"
-            self.unlock_q.put_nowait(message)
             logger.debug(
                 "Notifying %s for NACK %s.", channel, message.message_id
             )
@@ -309,6 +315,7 @@ class PostgresConsumer(Consumer):
                     message.message_id,
                 ),
             )
+        self.unlock_q.put_nowait(message)
         self.in_processing.remove(message.message_id)
 
     @raise_connection_error
@@ -359,11 +366,7 @@ class PostgresConsumer(Consumer):
                     lock,
                 )
                 curs.execute(
-                    dedent(
-                        """\
-                SELECT pg_advisory_unlock(%s);
-                """
-                    ),
+                    QUERIES.RELEASE_ONE,
                     (lock,),
                 )
                 self.unlock_q.task_done()
@@ -429,6 +432,7 @@ QUERIES = QueryManager(
             AND pg_try_advisory_lock(%s);
         """
         ),
+        RELEASE_ONE="""SELECT pg_advisory_unlock(%s)""",
         ENQUEUE=dedent(
             """\
         WITH enqueued AS (
