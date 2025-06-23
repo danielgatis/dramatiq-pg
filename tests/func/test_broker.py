@@ -45,7 +45,7 @@ def test_massive(listener, pgconn, witness, worker):
 
 
 @pytest.mark.timeout(8)
-def test_retry(listener, pgconn, witness):
+def test_retry(listener, pgconn, witness, worker):
     # Start listening for ack.
     with listener:
         failing.send(always=False, message="Testing retry")
@@ -62,7 +62,7 @@ def test_retry(listener, pgconn, witness):
 
 
 @pytest.mark.timeout(4)
-def test_nack(listener, pgconn, witness):
+def test_nack(listener, pgconn, witness, worker):
     with listener:
         rejecting.send(message="Rejecting from func test.")
         listener.wait(1)
