@@ -51,7 +51,7 @@ class PostgresBackend(ResultBackend):
             curs.execute(QUERIES.GET, (key,))
             if curs.rowcount:
                 (result,) = curs.fetchone()
-                return result
+                return self.unwrap_result(result)
             elif not block:
                 raise ResultMissing(message)
 
@@ -63,7 +63,9 @@ class PostgresBackend(ResultBackend):
             raise ResultTimeout(message)
         (notify,) = notifies
         # Don't query database, use NOTIFY payload.
-        return self.encoder.decode(notify.payload.encode("utf-8"))
+        decoded = self.encoder.decode(notify.payload.encode("utf-8"))
+
+        return self.unwrap_result(decoded)
 
     @retry_pg
     def _store(self, key, result, ttl):
