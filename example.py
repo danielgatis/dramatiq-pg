@@ -86,7 +86,8 @@ def writer(*args, **kwargs):
 # Set minimal value for max_backoff to avoid waiting 30days when running func
 # tests on CI.
 @dramatiq.actor(max_backoff=100)
-def failing(always=True, message="Forged failure"):
+def failing(always=True, message="Forged failure", wait=0):
+    time.sleep(wait)
     if always or random.randint(0, 1):
         raise Exception(message)
     else:

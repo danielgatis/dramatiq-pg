@@ -2,9 +2,9 @@ from uuid import uuid4
 
 import pytest
 from dramatiq import Message, get_broker
-from dramatiq.results import ResultMissing, ResultTimeout
+from dramatiq.results import ResultFailure, ResultMissing, ResultTimeout
 
-from example import saver
+from example import failing, saver
 
 
 @pytest.mark.timeout(8)
@@ -21,6 +21,21 @@ def test_block(worker):
 
     result = message.get_result()
     assert "message" in result
+
+
+@pytest.mark.timeout(8)
+def test_failing(worker):
+    message = failing.send_with_options(
+        kwargs={"wait": 1},
+        max_retries=0,
+        store_results=True,
+    )
+
+    with pytest.raises(ResultFailure):
+        message.get_result(block=True)
+
+    with pytest.raises(ResultFailure):
+        message.get_result()
 
 
 @pytest.mark.timeout(8)
