@@ -5,6 +5,16 @@ Python3. dramatiq-pg provides a Postgres-based implementation of a dramatiq
 broker.
 
 
+## Fork Notice
+
+This is a fork of the original [dramatiq-pg](https://gitlab.com/dalibo/dramatiq-pg) project, updated to support **Dramatiq 2.0+** and **Python 3.10+**.
+
+### Changes from upstream:
+- Updated `dramatiq` dependency from `^1.5` to `^2.0`
+- Updated minimum Python version from `3.6` to `3.10`
+- Added [testcontainers](https://testcontainers.com/) for running functional tests with Docker (no local PostgreSQL required)
+
+
 ## Features
 
 - Super simple deployment: Single table, no ORM.

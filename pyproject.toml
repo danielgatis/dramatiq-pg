@@ -11,15 +11,15 @@ keywords = ["postgres", "task queue", "dramatiq"]
 include = ["dramatiq-pg/schema.sql"]
 
 [tool.poetry.dependencies]
-python = "^3.6"
-dramatiq = "^1.5"
+python = "^3.10"
+dramatiq = "^2.0"
 tenacity = ">=8,<10"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.7"
 pytest = "^6"
 pytest-timeout = "^2"
-dramatiq = {version = "^1.5",extras = ["watch"]}
+dramatiq = {version = "^2.0",extras = ["watch"]}
 sh = "^1.12"
 pytest-mock = "^1.10"
 psycopg2-binary = "^2.8"
@@ -32,3 +32,8 @@ dramatiq-pg = 'dramatiq_pg.cli:entrypoint'
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "testcontainers (>=4.14.0,<5.0.0)"
+]
