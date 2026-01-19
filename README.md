@@ -1,4 +1,7 @@
-![Dramatiq-pg](https://gitlab.com/dalibo/dramatiq-pg/raw/master/docs/logo-horizontal.png?inline=false)
+<img width="960" height="167" alt="logo-horizontal" src="https://github.com/user-attachments/assets/a4d7a30b-c549-4e89-928f-bfeaabd5547a" />
+
+<br/>
+<br/>
 
 [Dramatiq](https://dramatiq.io/) is a simple task queue implementation for
 Python3. dramatiq-pg provides a Postgres-based implementation of a dramatiq
